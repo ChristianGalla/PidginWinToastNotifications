@@ -27,6 +27,7 @@ using namespace Windows::Foundation;
 #define DEFAULT_SHELL_LINKS_PATH	L"\\Microsoft\\Windows\\Start Menu\\Programs\\"
 #define DEFAULT_LINK_FORMAT			L".lnk"
 namespace WinToastLib {
+
     class IWinToastHandler {
     public:
         enum WinToastDismissalReason {
@@ -35,6 +36,7 @@ namespace WinToastLib {
             TimedOut = ToastDismissalReason::ToastDismissalReason_TimedOut
         };
         virtual void toastActivated() const = 0;
+        virtual void toastActivated(int actionIndex) const = 0;
         virtual void toastDismissed(WinToastDismissalReason state) const = 0;
         virtual void toastFailed() const = 0;
     };
@@ -56,18 +58,25 @@ namespace WinToastLib {
 
         WinToastTemplate(_In_ WinToastTemplateType type = ImageAndText02);
         ~WinToastTemplate();
+
         void                                        setTextField(_In_ const std::wstring& txt, _In_ TextField pos);
         void                                        setImagePath(_In_ const std::wstring& imgPath);
+        void                                        addAction(_In_ const std::wstring& label);
+        inline void                                 setExpiration(_In_ INT64 millisecondsFromNow) { _expiration = millisecondsFromNow; }
         inline int                                  textFieldsCount() const { return static_cast<int>(_textFields.size()); }
-        inline bool                                 hasImage() const { return _hasImage; }
+        inline int                                  actionsCount() const { return static_cast<int>(_actions.size()); }
+        inline bool                                 hasImage() const { return _type < Text01; }
         inline std::vector<std::wstring>            textFields() const { return _textFields; }
         inline std::wstring                         textField(_In_ TextField pos) const { return _textFields[pos]; }
+        inline std::wstring                         actionLabel(_In_ int pos) const { return _actions[pos]; }
         inline std::wstring                         imagePath() const { return _imagePath; }
+        inline INT64                                expiration() const { return _expiration; }
         inline WinToastTemplateType                 type() const { return _type; }
     private:
-        bool                                _hasImage;
         std::vector<std::wstring>			_textFields;
         std::wstring                        _imagePath;
+        std::vector<std::wstring>           _actions;
+        INT64                               _expiration;
         WinToastTemplateType                _type;
     };
 
@@ -77,7 +86,8 @@ namespace WinToastLib {
         virtual ~WinToast();
         static WinToast* instance();
         static bool             isCompatible();
-        static std::wstring     configureAUMI(_In_ const std::wstring& companyName,
+		static bool				supportActions();
+		static std::wstring     configureAUMI(_In_ const std::wstring& companyName,
                                                     _In_ const std::wstring& productName,
                                                     _In_ const std::wstring& subProduct = std::wstring(),
                                                     _In_ const std::wstring& versionInformation = std::wstring()
@@ -91,6 +101,18 @@ namespace WinToastLib {
         inline std::wstring     appUserModelId() const { return _aumi; }
         void                    setAppUserModelId(_In_ const std::wstring& appName);
         void                    setAppName(_In_ const std::wstring& appName);
+
+        enum ShortcutResult {
+            SHORTCUT_UNCHANGED = 0,
+            SHORTCUT_WAS_CHANGED = 1,
+            SHORTCUT_WAS_CREATED = 2,
+
+            SHORTCUT_MISSING_PARAMETERS = -1,
+            SHORTCUT_INCOMPATIBLE_OS = -2,
+            SHORTCUT_COM_INIT_FAILURE = -3,
+            SHORTCUT_CREATE_FAILED = -4
+        };
+        virtual enum ShortcutResult createShortcut();
     protected:
         bool											_isInitialized;
         bool                                            _hasCoInitialized;
@@ -101,12 +123,12 @@ namespace WinToastLib {
         ComPtr<IToastNotificationManagerStatics>        _notificationManager;
         ComPtr<IToastNotifier>                          _notifier;
         ComPtr<IToastNotificationFactory>               _notificationFactory;
-        static WinToast*								_instance;
 
-        HRESULT     validateShellLinkHelper();
+        HRESULT     validateShellLinkHelper(_Out_ bool& wasChanged);
         HRESULT		createShellLinkHelper();
         HRESULT		setImageFieldHelper(_In_ const std::wstring& path);
         HRESULT     setTextFieldHelper(_In_ const std::wstring& text, _In_ int pos);
+        HRESULT     addActionHelper(_In_ const std::wstring& action, _In_ const std::wstring& arguments);
     };
 }
 #endif // WINTOASTLIB_H
