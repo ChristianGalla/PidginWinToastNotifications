@@ -18,25 +18,30 @@ bool isInit = false;
 //	return dest;
 //}
 
-class WinToastHandlerExample : public IWinToastHandler {
+class WinToastHandler : public IWinToastHandler {
 public:
-	WinToastHandlerExample();
+	WinToastHandler();
 	// Public interfaces
 	void toastActivated() const;
+    void toastActivated(int actionIndex) const;
 	void toastDismissed(WinToastDismissalReason state) const;
 	void toastFailed() const;
 };
 
-WinToastHandlerExample::WinToastHandlerExample() {
+WinToastHandler::WinToastHandler() {
 }
 
-void WinToastHandlerExample::toastActivated() const {
+void WinToastHandler::toastActivated() const {
 }
 
-void WinToastHandlerExample::toastDismissed(WinToastDismissalReason state) const {
+void WinToastHandler::toastActivated(int actionIndex) const
+{
 }
 
-void WinToastHandlerExample::toastFailed() const {
+void WinToastHandler::toastDismissed(WinToastDismissalReason state) const {
+}
+
+void WinToastHandler::toastFailed() const {
 }
 
 extern "C" int pidginWinToastLibInit()
@@ -66,7 +71,7 @@ extern "C" int PIDGINWINTOASTLIB_API pidginWinToastLibShowMessage(const char * s
 		try {
 			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
-			WinToastHandlerExample* handler = new WinToastHandlerExample;
+			WinToastHandler* handler = new WinToastHandler();
 			WinToastTemplate templ;
 			std::wstring sImagePath;
 
