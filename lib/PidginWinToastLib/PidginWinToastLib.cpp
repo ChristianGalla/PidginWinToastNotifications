@@ -65,7 +65,7 @@ extern "C" int pidginWinToastLibInit()
 	}
 }
 
-extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath)
+extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath, const char * protocolName)
 {
 	if (isInit) {
 		try {
@@ -88,6 +88,11 @@ extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * me
 			templ.setTextField(sSender, WinToastTemplate::FirstLine);
 			std::wstring sMessage = converter.from_bytes(message);
 			templ.setTextField(sMessage, WinToastTemplate::SecondLine);
+
+            if (protocolName != NULL) {
+                std::wstring sProtocolName = converter.from_bytes(protocolName);
+                templ.setAttributionText(sProtocolName);
+            }
 
 
 			INT64 toastResult = WinToast::instance()->showToast(templ, handler);

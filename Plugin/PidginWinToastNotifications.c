@@ -12,7 +12,7 @@
 #include "blist.h"
 
 typedef int (__cdecl *initProc)(); 
-typedef int (__cdecl *showToastProc)(const char * sender, const char * message, const char * imagePath); 
+typedef int (__cdecl *showToastProc)(const char * sender, const char * message, const char * imagePath, const char * protocolName); 
 
 HINSTANCE hinstLib;
 initProc initAdd;
@@ -45,6 +45,7 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 				   PurpleConversation *conv, PurpleMessageFlags flags, void *data)
 {
 	int callResult;
+    const char *protocolName = NULL;
 	char *simpleMessage = NULL;
 	const char *constSimpleMessage = "";
 	PurpleBuddy * buddy = NULL;
@@ -60,23 +61,25 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	}
 	
 	if (buffer != NULL) {
-		simpleMessage = getStringWithoutXml(buffer);
+		simpleMessage = buffer;
 		constSimpleMessage = simpleMessage;
 	}
+	
+	protocolName = purple_account_get_protocol_name(account);
 
-	purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %d)\n",
-					purple_account_get_username(account), sender, buffer, constSimpleMessage,
+	purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %s, %d)\n",
+					protocolName, purple_account_get_username(account), sender, buffer, constSimpleMessage,
 					senderName, flags);
-	callResult = (showToastProcAdd)(senderName, constSimpleMessage, iconPath); 
+	callResult = (showToastProcAdd)(senderName, constSimpleMessage, iconPath, protocolName); 
 	purple_debug_misc("win_toast_notifications",
 		"Result: %d\n",
 		callResult);
-	if (simpleMessage != NULL) {
+	/*if (simpleMessage != NULL) {
 		free(simpleMessage);
 	}
 	if (iconPath != NULL) {
 		g_free(iconPath);
-	}
+	}*/
 }
 
 static void
@@ -102,7 +105,7 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %s, %d)\n",
 					purple_account_get_username(account), sender, buffer, constSimpleMessage,
 					constChatName, flags);
-	callResult = (showToastProcAdd)(constChatName, constSimpleMessage, NULL); 
+	callResult = (showToastProcAdd)(constChatName, constSimpleMessage, NULL, NULL); 
 	purple_debug_misc("win_toast_notifications",
 		"Result: %d\n",
 		callResult);
