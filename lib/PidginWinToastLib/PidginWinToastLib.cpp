@@ -65,7 +65,7 @@ extern "C" int pidginWinToastLibInit()
 	}
 }
 
-extern "C" int PIDGINWINTOASTLIB_API pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath)
+extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath)
 {
 	if (isInit) {
 		try {
