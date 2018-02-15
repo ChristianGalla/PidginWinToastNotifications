@@ -30,6 +30,9 @@
     <ClInclude Include="wintoastlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="StripHTML.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -39,6 +42,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="wintoastlib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StripHTML.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

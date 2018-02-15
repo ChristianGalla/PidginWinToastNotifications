@@ -9,6 +9,8 @@ using namespace WinToastLib;
 
 bool isInit = false;
 
+std::wstring getTextFromHtml(std::wstring);
+
 //char* copyCharArrayToHeap(char* source) {
 //	size_t size = strlen(source) + 1;
 //	char* dest = (char*)malloc(size);
@@ -107,4 +109,52 @@ extern "C" int PIDGINWINTOASTLIB_API pidginWinToastLibShowMessage(const char * s
 		// not initialized
 		return 1;
 	}
+}
+
+std::wstring getTextFromHtml(std::wstring html) {
+    std::stack<std::wstring> tags;
+    std::wstringstream ret;
+
+    size_t startPos = 0;
+    size_t endPos = 0;
+    bool inTag = false;
+    bool searchTagEnd = false;
+    wchar_t last = L'';
+    for (size_t pos = 0; pos < html.length(); pos++) {
+        wchar_t c = html[pos];
+        if (c == L'\n' || c == L'\r' || c == L'\t') {
+            c = L' ';
+            if (last == L' ') {
+                continue;
+            }
+        }
+
+        if (c == L'<') {
+            // In start tag, end tag or comment
+            startPos = pos + 1;
+            if (pos+1 < html.length()) {
+                pos++;
+                c = html[pos];
+                if (c == L'!' && pos < html.length()) {
+                    // comment <!-- -->
+
+                }
+                else if (c == L'!') {
+                }
+            }
+            inTag = true;
+        } else if (inTag && (c == L'>' || c == L' ' || c == L'/')) {
+            if (startPos == pos && c == L'/') {
+                // in endtag
+            }
+            endPos = pos - 1;
+            inTag = false;
+            if (endPos > startPos) {
+                tags.push(html.substr(startPos, endPos - startPos));
+            }
+        }
+        last = c;
+    }
+    ret;
+    return ret.str();
 }
