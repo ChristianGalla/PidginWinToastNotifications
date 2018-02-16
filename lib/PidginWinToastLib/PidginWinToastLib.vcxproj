@@ -156,14 +156,14 @@
   <ItemGroup>
     <ClInclude Include="PidginWinToastLib.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="StripHTML.h" />
+    <ClInclude Include="stripHTML.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="wintoastlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PidginWinToastLib.cpp" />
     <ClCompile Include="stdafx.cpp" />
-    <ClCompile Include="StripHTML.cpp" />
+    <ClCompile Include="stripHTML.cpp" />
     <ClCompile Include="wintoastlib.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

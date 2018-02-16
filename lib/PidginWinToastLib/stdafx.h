@@ -16,3 +16,4 @@
 #include <locale>
 #include <codecvt>
 #include "wintoastlib.h"
+#include "stripHTML.h"

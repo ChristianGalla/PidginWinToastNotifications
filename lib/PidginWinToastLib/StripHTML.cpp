@@ -1,26 +1,47 @@
-#include "StripHTML.h"
+#include "stripHTML.h"
 
-void replaceAll(std::wstring& str, const std::wstring& from, const std::wstring& to) {
-    if (from.empty())
-        return;
-    size_t start_pos = 0;
-    while ((start_pos = str.find(from, start_pos)) != std::wstring::npos) {
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
+std::map<std::wstring, std::wstring> namedCharCodes {
+    { L"&lt;", L"<" },
+    { L"&gt;", L">" },
+    { L"&amp;", L"&" },
+    { L"&quot;", L"\"" },
+    { L"&apos;", L"'" },
+};
+
+std::wstring replaceNamedCharCodes(std::wstring source) {
+    std::wsmatch cm;
+    if (std::regex_search(source, cm, std::wregex(L"&\\w+;"))) {
+        std::map<std::wstring, std::wstring>::iterator it = namedCharCodes.find(cm[0]);
+        if (it != namedCharCodes.end()) {
+            std::wstring ret = cm.prefix().str() + namedCharCodes.find(cm[0])->second;
+            if (cm.suffix().length() > 0) {
+                ret += replaceNamedCharCodes(cm.suffix().str());
+            }
+            return ret;
+        }
+        else {
+            return source;
+        }
+    }
+    else {
+        return source;
     }
 }
 
-std::wstring StripHTML(std::wstring source)
+// https://www.codeproject.com/Articles/11902/Convert-HTML-to-Plain-Text
+std::wstring stripHTML(std::wstring source)
 {
-    std::wstring result;
+    std::wstring result = source;
 
     // Replace any white space characters(line breaks, tabs, spaces) with space because browsers inserts space
-    replaceAll(source, L"\s", L" ");
+    // replaceAll(result, L"\s", L" ");
+    result = std::regex_replace(source, std::wregex(L"\\s", std::regex::ECMAScript), L" ");
     // Remove repeating speces becuase browsers ignore them
-    replaceAll(source, L" {2,}", L" ");
+    // replaceAll(result, L" {2,}", L" ");
+    result = std::regex_replace(source, std::wregex(L" {2,}", std::regex::ECMAScript), L" ");
         
     // Remove HTML comment
-    result = std::regex_replace(result, std::wregex(L"<! *--.*?-- *>"), L"");
+    result = std::regex_replace(result, std::wregex(L"<! *--.*?-- *>", std::regex::ECMAScript), L"");
     // Remove the header
     result = std::regex_replace(result, std::wregex(L"< *head( *>| [^>]*>).*< */ *head *>", std::regex::ECMAScript | std::regex::icase), L"");
     // remove all scripts
@@ -50,20 +71,6 @@ std::wstring StripHTML(std::wstring source)
     result = std::regex_replace(result, std::wregex(L"\r{3,}", std::regex::ECMAScript | std::regex::icase), L"\r\r");
     result = std::regex_replace(result, std::wregex(L"\t{4,}", std::regex::ECMAScript | std::regex::icase), L"\t\t\t\t");
 
-    std::wcmatch cm;
-    std::regex_match(result, cm.str(), std::wregex(L"&\w+;"));
-
-    // Replace named character codes
-    for (size_t i = 0; i<cm.size(); i++) {
-    {
-        if (SpecChars.ContainsKey(AmpCodes[i].Value))
-        {
-            result = result.Substring(0, AmpCodes[i].Index) +
-                Convert.ToChar(SpecChars[AmpCodes[i].Value]) +
-                result.Substring(AmpCodes[i].Index + AmpCodes[i].Length);
-        }
-    }
-    // Remove all others
-    result = std::regex_replace(result, std::wregex(L"&[^;]*;", std::regex::ECMAScript | std::regex::icase), L"");
+    result = replaceNamedCharCodes(result);
     return result;
 }

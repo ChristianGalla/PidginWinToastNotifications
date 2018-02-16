@@ -2,5 +2,6 @@
 
 #include <string>
 #include <regex>
+#include <map>
 
-std::wstring StripHTML(std::wstring source);
+std::wstring stripHTML(std::wstring source);
