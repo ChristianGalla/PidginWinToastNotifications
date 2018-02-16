@@ -30,7 +30,7 @@ PidginWinToastNotifications.dll is loaded from Pidgin as plugin. It is written i
 
 PidginWinToastLib.dll is written in C++ and calls Windows's toast notification API to display the toast notifications. For that it uses [WinToast](https://github.com/mohabouje/WinToast) as library.
 
-## How to build on windows
+## How to build on Windows
 
 ### PidginWinToastNotifications.dll
 
