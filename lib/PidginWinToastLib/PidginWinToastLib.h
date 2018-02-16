@@ -21,7 +21,7 @@ extern "C" {
 #ifdef __cplusplus
 extern "C" {
 #endif
-	int PIDGINWINTOASTLIB_API pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath = NULL);
+	int PIDGINWINTOASTLIB_API pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath = NULL, const char * protocolName = NULL);
 #ifdef __cplusplus
 } // extern "C"
 #endif
