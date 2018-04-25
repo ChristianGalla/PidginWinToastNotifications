@@ -83,9 +83,6 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	} else {
 		purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
 	}
-	if (iconPath != NULL) {
-		g_free(iconPath);
-	}
 }
 
 static void
