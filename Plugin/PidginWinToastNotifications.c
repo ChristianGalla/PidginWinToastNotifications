@@ -17,15 +17,41 @@ HINSTANCE hinstLib;
 initProc initAdd;
 showToastProc showToastProcAdd;
 
-char* copyCharArrayToHeap(const char* source);
-	
-char* copyCharArrayToHeap(const char* source) {
-	size_t size = strlen(source) + 1;
-	char* dest = (char*)malloc(size);
-	if (dest != NULL) {
-		strcpy(dest, source);
+void output_toast_error(int errorNumber, char *message);
+
+void output_toast_error(int errorNumber, char *message) {
+	char *errorMessage = NULL;
+	switch(errorNumber) {
+		case 0:
+			errorMessage = "No error. The process was executed correctly";
+			break;
+		case 1:
+			errorMessage = "The library has not been initialized";
+			break;
+		case 2:
+			errorMessage = "The OS does not support WinToast";
+			break;
+		case 3:
+			errorMessage = "The library was not able to create a Shell Link for the app";
+			break;
+		case 4:
+			errorMessage = "The AUMI is not a valid one";
+			break;
+		case 5:
+			errorMessage = "The parameters used to configure the library are not valid normally because an invalid AUMI or App Name";
+			break;
+		case 6:
+			errorMessage = "The toast was created correctly but WinToast was not able to display the toast";
+			break;
+		case 7:
+			errorMessage = "Unknown error";
+			break;
+		default:
+			errorMessage = "Unknown exception";
+			break;
 	}
-	return dest;
+	purple_debug_error("win_toast_notifications", "%s: %s\n",
+					message, errorMessage);
 }
 
 static void
@@ -52,9 +78,11 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 					protocolName, purple_account_get_username(account), sender, buffer, 
 					senderName, flags);
 	callResult = (showToastProcAdd)(senderName, buffer, iconPath, protocolName); 
-	purple_debug_misc("win_toast_notifications",
-		"Result: %d\n",
-		callResult);
+	if (callResult) {
+		output_toast_error(callResult, "Failed to show Toast Notification");
+	} else {
+		purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+	}
 	if (iconPath != NULL) {
 		g_free(iconPath);
 	}
@@ -76,10 +104,12 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %d)\n",
 					purple_account_get_username(account), sender, buffer,
 					constChatName, flags);
-	callResult = (showToastProcAdd)(constChatName, buffer, NULL, NULL); 
-	purple_debug_misc("win_toast_notifications",
-		"Result: %d\n",
-		callResult);
+	callResult = (showToastProcAdd)(constChatName, buffer, NULL, NULL);
+	if (callResult) {
+		output_toast_error(callResult, "Failed to show Toast Notification");
+	} else {
+		purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+	}
 }
 
 static gboolean
@@ -108,16 +138,18 @@ plugin_load(PurplePlugin *plugin) {
 			void *conv_handle;
 			purple_debug_misc("win_toast_notifications",
 								"pidginWinToastLibInit called\n");
-            callResult = (initAdd)(); 
-			purple_debug_misc("win_toast_notifications",
-			 	"Result: %d\n",
-			 	callResult);
-			
-			conv_handle = purple_conversations_get_handle();
-			purple_signal_connect(conv_handle, "received-im-msg",
-				plugin, PURPLE_CALLBACK(received_im_msg_cb), NULL);
-			purple_signal_connect(conv_handle, "received-chat-msg",
-				plugin, PURPLE_CALLBACK(received_chat_msg_cb), NULL);
+            callResult = (initAdd)();
+			if (callResult) {
+				output_toast_error(callResult, "Initialization failed");
+			} else {
+				purple_debug_misc("win_toast_notifications",
+									"pidginWinToastLibInit initialized\n");
+				conv_handle = purple_conversations_get_handle();
+				purple_signal_connect(conv_handle, "received-im-msg",
+					plugin, PURPLE_CALLBACK(received_im_msg_cb), NULL);
+				purple_signal_connect(conv_handle, "received-chat-msg",
+					plugin, PURPLE_CALLBACK(received_chat_msg_cb), NULL);
+			}
         }
     } else {
 		purple_debug_misc("win_toast_notifications",

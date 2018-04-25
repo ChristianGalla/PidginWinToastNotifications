@@ -53,13 +53,9 @@ extern "C" int pidginWinToastLibInit()
 		WinToast::instance()->setAppUserModelId(
 			WinToast::configureAUMI(L"GallaChristian", L"Pidgin"));
 
-		bool initSuccess = WinToast::instance()->initialize();
-		if (!initSuccess) {
-			// Could not initialize the lib
-			return 1;
-		}
-		isInit = true;
-		return 0;
+        WinToast::WinToastError error;
+        isInit = WinToast::instance()->initialize(&error);
+		return error;
 	}
 	catch (...) {
 		// unknown exception
@@ -97,14 +93,10 @@ extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * me
                 templ.setAttributionText(sProtocolName);
             }
 
-
-			INT64 toastResult = WinToast::instance()->showToast(templ, handler);
-			if (toastResult == -1) {
-				// Could not launch toast notification
-				return 2;
-			}
-
-			return 0;
+            WinToast::WinToastError error;
+			INT64 toastResult = WinToast::instance()->showToast(templ, handler, &error);
+			
+            return error;
 		}
 		catch (...) {
 			// unknown exception
