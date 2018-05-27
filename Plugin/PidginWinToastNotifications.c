@@ -67,6 +67,9 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	
 	buddy = purple_find_buddy(account, sender);
 	senderName = purple_buddy_get_alias(buddy);
+	if (senderName == NULL) {
+		senderName = "Unknown sender";
+	}
 	icon = purple_buddy_get_icon(buddy);
 	if (icon != NULL) {
 		iconPath = purple_buddy_icon_get_full_path(icon);
@@ -94,9 +97,16 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 
 	if (chat != NULL) {
 		constChatName = purple_conversation_get_title(chat);
+		if (constChatName == NULL) {
+			constChatName = "Unknown chat";
+		}
 	} else {
 		constChatName = sender;
+		if (constChatName == NULL) {
+			constChatName = "Unknown sender in chat";
+		}
 	}
+
 
 	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %d)\n",
 					purple_account_get_username(account), sender, buffer,

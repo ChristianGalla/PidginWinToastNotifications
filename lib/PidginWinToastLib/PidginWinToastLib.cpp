@@ -66,6 +66,9 @@ extern "C" int pidginWinToastLibInit()
 extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath, const char * protocolName)
 {
 	if (isInit) {
+        if (sender == nullptr) {
+            return WinToast::WinToastError::InvalidParameters;
+        }
 		try {
 			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
@@ -104,7 +107,6 @@ extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * me
 		}
 	}
 	else {
-		// not initialized
-		return 1;
+		return WinToast::WinToastError::NotInitialized;
 	}
 }
