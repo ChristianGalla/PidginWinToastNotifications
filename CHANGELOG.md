@@ -1,6 +1,8 @@
 # Changelog
 
-## <a name="Unreleased"></a>[Unreleased](#Unreleased)
+## <a name="1.2.0"></a>[1.2.0](#1.2.0) (2018-05-29)
+- Added that notifications are only shown when the window is not focused.
+- Fixed a crash when the name of a sender cannot be determined.
 - Improved error handling.
 
 ## <a name="1.1.1"></a>[1.1.1](#1.1.1) (2018-04-06)

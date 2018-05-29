@@ -197,7 +197,7 @@ static PurplePluginInfo info = {
 
     "gtk-win32-gallax-win_toast_notifications",
     "Windows Toast Notifications",
-    "1.0",
+    "1.2.0",
 
     "Native Windows Toast Notifications.",          
     "Displays native Windows Toast Notifications.",          
