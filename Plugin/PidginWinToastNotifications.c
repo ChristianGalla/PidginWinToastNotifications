@@ -64,6 +64,7 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
     const char *senderName = NULL;
 	PurpleBuddyIcon * icon = NULL;
 	char* iconPath = NULL;
+	gboolean hasFocus;
 	
 	buddy = purple_find_buddy(account, sender);
 	senderName = purple_buddy_get_alias(buddy);
@@ -80,11 +81,14 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %d)\n",
 					protocolName, purple_account_get_username(account), sender, buffer, 
 					senderName, flags);
-	callResult = (showToastProcAdd)(senderName, buffer, iconPath, protocolName); 
-	if (callResult) {
-		output_toast_error(callResult, "Failed to show Toast Notification");
-	} else {
-		purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+	hasFocus = purple_conversation_has_focus(conv);
+	if (!hasFocus) {
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, protocolName); 
+		if (callResult) {
+			output_toast_error(callResult, "Failed to show Toast Notification");
+		} else {
+			purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+		}
 	}
 }
 
@@ -94,6 +98,7 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 {
     const char *constChatName;
 	int callResult;
+	gboolean hasFocus;
 
 	if (chat != NULL) {
 		constChatName = purple_conversation_get_title(chat);
@@ -107,15 +112,17 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 		}
 	}
 
-
 	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %d)\n",
 					purple_account_get_username(account), sender, buffer,
 					constChatName, flags);
-	callResult = (showToastProcAdd)(constChatName, buffer, NULL, NULL);
-	if (callResult) {
-		output_toast_error(callResult, "Failed to show Toast Notification");
-	} else {
-		purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+	hasFocus = purple_conversation_has_focus(chat);
+	if (!hasFocus) {
+		callResult = (showToastProcAdd)(constChatName, buffer, NULL, NULL);
+		if (callResult) {
+			output_toast_error(callResult, "Failed to show Toast Notification");
+		} else {
+			purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
+		}
 	}
 }
 
