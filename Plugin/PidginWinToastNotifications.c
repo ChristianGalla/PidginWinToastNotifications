@@ -1,6 +1,7 @@
 #define PURPLE_PLUGINS
 
 #include <glib.h>
+#include "string.h"
 
 #include "gtkplugin.h"
 #include "account.h"
@@ -18,6 +19,7 @@ initProc initAdd;
 showToastProc showToastProcAdd;
 
 void output_toast_error(int errorNumber, char *message);
+char * get_attr_text(const char *protocolName, const char *userName, const char *chatName);
 
 void output_toast_error(int errorNumber, char *message) {
 	char *errorMessage = NULL;
@@ -54,76 +56,149 @@ void output_toast_error(int errorNumber, char *message) {
 					message, errorMessage);
 }
 
+char * get_attr_text(const char *protocolName, const char *userName, const char *chatName) {
+	const char * startText = "Via ";
+	const char * chatText = "In chat ";
+	const char * formatText = " ()";
+	const char * formatChat = "\r\n";
+	int startTextSize = strlen(startText);
+	int formatTextSize = strlen(formatText);
+	int protocolNameSize = strlen(protocolName);
+	int userNameSize = strlen(userName);
+	int targetPos = 0;
+	int chatTextSize = 0;
+	int chatNameSize = 0;
+	int formatChatSize = 0;
+	int size;
+	char *ret = NULL;
+	if (chatName != NULL) {
+		chatNameSize = strlen(chatName);
+		chatTextSize = strlen(chatText);
+		formatChatSize = strlen(formatChat);
+	}
+	size = startTextSize + formatTextSize + protocolNameSize + userNameSize + chatNameSize + chatTextSize + formatChatSize + 1;
+	ret = (char*)malloc(size);
+	memcpy(ret + targetPos, startText, startTextSize);
+	targetPos += startTextSize;
+	memcpy(ret + targetPos, protocolName, protocolNameSize);
+	targetPos += protocolNameSize;
+	ret[targetPos] = ' ';
+	targetPos++;
+	ret[targetPos] = '(';
+	targetPos++;
+	memcpy(ret + targetPos, userName, userNameSize);
+	targetPos += userNameSize;
+	ret[targetPos] = ')';
+	targetPos++;
+	if (chatNameSize > 0) {
+		ret[targetPos] = '\r';
+		targetPos++;
+		ret[targetPos] = '\n';
+		targetPos++;
+		memcpy(ret + targetPos, chatText, chatTextSize);
+		targetPos += chatTextSize;
+		memcpy(ret + targetPos, chatName, chatNameSize);
+		targetPos += chatNameSize;
+	}
+	ret[targetPos] = '\0';
+	return ret;
+}
+
 static void
 received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 				   PurpleConversation *conv, PurpleMessageFlags flags, void *data)
 {
 	int callResult;
     const char *protocolName = NULL;
+    char *attrText = NULL;
 	PurpleBuddy * buddy = NULL;
-    const char *senderName = NULL;
+	const char *userName = NULL;
 	PurpleBuddyIcon * icon = NULL;
-	char* iconPath = NULL;
+	const char *iconPath = NULL;
 	gboolean hasFocus;
+	const char *senderName = NULL;
 	
 	buddy = purple_find_buddy(account, sender);
 	senderName = purple_buddy_get_alias(buddy);
 	if (senderName == NULL) {
-		senderName = "Unknown sender";
+		senderName = purple_buddy_get_name(buddy);
+		if (senderName == NULL) {
+			senderName = sender;
+		}
 	}
 	icon = purple_buddy_get_icon(buddy);
 	if (icon != NULL) {
 		iconPath = purple_buddy_icon_get_full_path(icon);
 	}
 	
+	userName = purple_account_get_username(account);
 	protocolName = purple_account_get_protocol_name(account);
+	attrText = get_attr_text(protocolName, userName, NULL);
 
 	purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %d)\n",
-					protocolName, purple_account_get_username(account), sender, buffer, 
+					protocolName, userName, sender, buffer, 
 					senderName, flags);
 	hasFocus = purple_conversation_has_focus(conv);
 	if (!hasFocus) {
-		callResult = (showToastProcAdd)(senderName, buffer, iconPath, protocolName); 
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText); 
 		if (callResult) {
 			output_toast_error(callResult, "Failed to show Toast Notification");
 		} else {
 			purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
 		}
 	}
+	free(attrText);
 }
 
 static void
 received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 					 PurpleConversation *chat, PurpleMessageFlags flags, void *data)
 {
-    const char *constChatName;
+    const char *chatName = NULL;
+    const char *protocolName = NULL;
+	const char *userName = NULL;
+    char *attrText = NULL;
+	PurpleBuddy * buddy = NULL;
 	int callResult;
 	gboolean hasFocus;
+	const char *senderName = NULL;
+	PurpleBuddyIcon * icon = NULL;
+	const char *iconPath = NULL;
 
-	if (chat != NULL) {
-		constChatName = purple_conversation_get_title(chat);
-		if (constChatName == NULL) {
-			constChatName = "Unknown chat";
-		}
-	} else {
-		constChatName = sender;
-		if (constChatName == NULL) {
-			constChatName = "Unknown sender in chat";
+	buddy = purple_find_buddy(account, sender);
+	senderName = purple_buddy_get_alias(buddy);
+	if (senderName == NULL) {
+		senderName = purple_buddy_get_name(buddy);
+		if (senderName == NULL) {
+			senderName = sender;
 		}
 	}
+	icon = purple_buddy_get_icon(buddy);
+	if (icon != NULL) {
+		iconPath = purple_buddy_icon_get_full_path(icon);
+	}
 
-	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %d)\n",
-					purple_account_get_username(account), sender, buffer,
-					constChatName, flags);
+	if (chat != NULL) {
+		chatName = purple_conversation_get_title(chat);
+	}
+
+	userName = purple_account_get_username(account);
+	protocolName = purple_account_get_protocol_name(account);
+	attrText = get_attr_text(protocolName, userName, chatName);
+
+	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %s, %d)\n",
+					protocolName, purple_account_get_username(account), sender, buffer,
+					chatName, flags);
 	hasFocus = purple_conversation_has_focus(chat);
 	if (!hasFocus) {
-		callResult = (showToastProcAdd)(constChatName, buffer, NULL, NULL);
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText);
 		if (callResult) {
 			output_toast_error(callResult, "Failed to show Toast Notification");
 		} else {
 			purple_debug_misc("win_toast_notifications","Showed Toast Notification\n");
 		}
 	}
+	free(attrText);
 }
 
 static gboolean
