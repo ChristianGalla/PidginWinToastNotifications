@@ -109,7 +109,7 @@ char * get_attr_text(const char *protocolName, const char *userName, const char 
 
 void toast_clicked_cb(PurpleConversation *conv) {
 	PidginConversation *gtkconv;
-	purple_debug_misc("win_toast_notifications", "toast clicked");
+	purple_debug_misc("win_toast_notifications", "toast clicked\n");
 	pidgin_conv_attach_to_conversation(conv);
 	gtkconv = PIDGIN_CONVERSATION(conv);
 	pidgin_conv_switch_active_conversation(conv);
@@ -128,20 +128,26 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	const char *userName = NULL;
 	PurpleBuddyIcon * icon = NULL;
 	const char *iconPath = NULL;
-	gboolean hasFocus;
+	gboolean hasFocus = FALSE;
 	const char *senderName = NULL;
 	
 	buddy = purple_find_buddy(account, sender);
-	senderName = purple_buddy_get_alias(buddy);
-	if (senderName == NULL) {
-		senderName = purple_buddy_get_name(buddy);
+	if (buddy != NULL) {
+		purple_debug_misc("win_toast_notifications","Received a direct message from a buddy\n");
+		senderName = purple_buddy_get_alias(buddy);
 		if (senderName == NULL) {
-			senderName = sender;
+			senderName = purple_buddy_get_name(buddy);
+			if (senderName == NULL) {
+				senderName = sender;
+			}
 		}
-	}
-	icon = purple_buddy_get_icon(buddy);
-	if (icon != NULL) {
-		iconPath = purple_buddy_icon_get_full_path(icon);
+		icon = purple_buddy_get_icon(buddy);
+		if (icon != NULL) {
+			iconPath = purple_buddy_icon_get_full_path(icon);
+		}
+	} else {
+		purple_debug_misc("win_toast_notifications","Received a direct message from someone who is not a buddy\n");
+		senderName = sender;
 	}
 	
 	userName = purple_account_get_username(account);
@@ -151,7 +157,12 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %d)\n",
 					protocolName, userName, sender, buffer, 
 					senderName, flags);
-	hasFocus = purple_conversation_has_focus(conv);
+	if (conv != NULL) {
+		hasFocus = purple_conversation_has_focus(conv);
+	} else {
+		purple_debug_misc("win_toast_notifications","PurpleConversation is NULL\n");
+		// @todo create conversation?
+	}
 	if (!hasFocus) {
 		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv); 
 		if (callResult) {
@@ -173,22 +184,28 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
     char *attrText = NULL;
 	PurpleBuddy * buddy = NULL;
 	int callResult;
-	gboolean hasFocus;
+	gboolean hasFocus = FALSE;
 	const char *senderName = NULL;
 	PurpleBuddyIcon * icon = NULL;
 	const char *iconPath = NULL;
 
 	buddy = purple_find_buddy(account, sender);
-	senderName = purple_buddy_get_alias(buddy);
-	if (senderName == NULL) {
-		senderName = purple_buddy_get_name(buddy);
+	if (buddy != NULL) {
+		purple_debug_misc("win_toast_notifications","Received a chat message from a buddy\n");
+		senderName = purple_buddy_get_alias(buddy);
 		if (senderName == NULL) {
-			senderName = sender;
+			senderName = purple_buddy_get_name(buddy);
+			if (senderName == NULL) {
+				senderName = sender;
+			}
 		}
-	}
-	icon = purple_buddy_get_icon(buddy);
-	if (icon != NULL) {
-		iconPath = purple_buddy_icon_get_full_path(icon);
+		icon = purple_buddy_get_icon(buddy);
+		if (icon != NULL) {
+			iconPath = purple_buddy_icon_get_full_path(icon);
+		}
+	} else {
+		purple_debug_misc("win_toast_notifications","Received a chat message from someone who is not a buddy\n");
+		senderName = sender;
 	}
 
 	if (chat != NULL) {
@@ -200,9 +217,14 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	attrText = get_attr_text(protocolName, userName, chatName);
 
 	purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %s, %d)\n",
-					protocolName, purple_account_get_username(account), sender, buffer,
+					protocolName, userName, sender, buffer,
 					chatName, flags);
-	hasFocus = purple_conversation_has_focus(chat);
+	if (chat != NULL) {
+		hasFocus = purple_conversation_has_focus(chat);
+	} else {
+		purple_debug_misc("win_toast_notifications","PurpleConversation is NULL\n");
+		// @todo create chat?
+	}
 	if (!hasFocus) {
 		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, chat);
 		if (callResult) {
