@@ -4,15 +4,28 @@ Windows toast notification plugin for Pidgin.
 
 Shows notifications on message receive in the standard Windows design.
 
-![sample notification](/img/sample.png "sample notification")
+Direct message with picture:
+
+![Direct message with picture](/img/direct_with_picture.png "Direct message with picture")
+
+Direct message without picture:
+
+![Direct message without picture](/img/direct_without_picture.png "Direct message without picture")
+
+Chat message without picture:
+
+![Chat message without picture](/img/chat_without_picture.png "Chat message without picture")
 
 This plugin uses Pidgin's standard C API so no other tools like Perl are required.
 
 ## Supported operating systems
 
-The plugin was developed and tested with the newest Windows 10 version 1709 x64.
+The plugin was developed and tested with the newest Windows 10 version.
 
 Other Windows 10 versions, Windows 8 and Windows 8.1 should work, too, but this wasn't tested.
+
+To display the protocol, account and chat name in the toast notifications the Windows 10 Anniversary Update (also known as version 1607 or Redstone 1) or newer is required.
+
 If you experience any problems, feel free to open an issue.
 
 ## Installation
