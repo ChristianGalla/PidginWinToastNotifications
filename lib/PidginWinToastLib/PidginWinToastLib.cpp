@@ -8,6 +8,7 @@ using namespace std;
 using namespace WinToastLib;
 
 bool isInit = false;
+void(*clickCallback)(void *conv) = nullptr;
 
 std::wstring getTextFromHtml(std::wstring);
 
@@ -22,7 +23,8 @@ std::wstring getTextFromHtml(std::wstring);
 
 class WinToastHandler : public IWinToastHandler {
 public:
-	WinToastHandler();
+    void *conv = nullptr;
+	WinToastHandler(void *conv = nullptr);
 	// Public interfaces
 	void toastActivated() const;
     void toastActivated(int actionIndex) const;
@@ -30,14 +32,21 @@ public:
 	void toastFailed() const;
 };
 
-WinToastHandler::WinToastHandler() {
+WinToastHandler::WinToastHandler(void *conv): 
+    conv(conv) {
 }
 
 void WinToastHandler::toastActivated() const {
+    if (clickCallback != nullptr && this->conv != nullptr) {
+        clickCallback(this->conv);
+    }
 }
 
 void WinToastHandler::toastActivated(int actionIndex) const
 {
+    if (clickCallback != nullptr && this->conv != nullptr) {
+        clickCallback(this->conv);
+    }
 }
 
 void WinToastHandler::toastDismissed(WinToastDismissalReason state) const {
@@ -46,8 +55,9 @@ void WinToastHandler::toastDismissed(WinToastDismissalReason state) const {
 void WinToastHandler::toastFailed() const {
 }
 
-extern "C" int pidginWinToastLibInit()
+extern "C" int pidginWinToastLibInit(void(*_clickCallback)(void *conv))
 {
+    clickCallback = _clickCallback;
 	try {
 		WinToast::instance()->setAppName(L"Pidgin");
 		WinToast::instance()->setAppUserModelId(
@@ -63,7 +73,7 @@ extern "C" int pidginWinToastLibInit()
 	}
 }
 
-extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath, const char * protocolName)
+extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * message, const char * imagePath, const char * protocolName, void *conv)
 {
 	if (isInit) {
         if (sender == nullptr) {
@@ -72,7 +82,7 @@ extern "C" int pidginWinToastLibShowMessage(const char * sender, const char * me
 		try {
 			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
-			WinToastHandler* handler = new WinToastHandler();
+			WinToastHandler* handler = new WinToastHandler(conv);
 			WinToastTemplate templ;
 			std::wstring sImagePath;
 

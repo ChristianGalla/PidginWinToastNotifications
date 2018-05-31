@@ -4,6 +4,8 @@
 #include "string.h"
 
 #include "gtkplugin.h"
+#include "gtkconv.h"
+#include "gtkconvwin.h"
 #include "account.h"
 #include "debug.h"
 #include "signals.h"
@@ -11,8 +13,8 @@
 #include "version.h"
 #include "blist.h"
 
-typedef int (__cdecl *initProc)(); 
-typedef int (__cdecl *showToastProc)(const char * sender, const char * message, const char * imagePath, const char * protocolName); 
+typedef int (__cdecl *initProc)(void(*clickCallback)(void *conv));
+typedef int (__cdecl *showToastProc)(const char * sender, const char * message, const char * imagePath, const char * protocolName, void *conv);
 
 HINSTANCE hinstLib;
 initProc initAdd;
@@ -20,6 +22,7 @@ showToastProc showToastProcAdd;
 
 void output_toast_error(int errorNumber, char *message);
 char * get_attr_text(const char *protocolName, const char *userName, const char *chatName);
+void toast_clicked_cb(PurpleConversation *conv);
 
 void output_toast_error(int errorNumber, char *message) {
 	char *errorMessage = NULL;
@@ -104,6 +107,16 @@ char * get_attr_text(const char *protocolName, const char *userName, const char 
 	return ret;
 }
 
+void toast_clicked_cb(PurpleConversation *conv) {
+	PidginConversation *gtkconv;
+	purple_debug_misc("win_toast_notifications", "toast clicked");
+	pidgin_conv_attach_to_conversation(conv);
+	gtkconv = PIDGIN_CONVERSATION(conv);
+	pidgin_conv_switch_active_conversation(conv);
+	pidgin_conv_window_switch_gtkconv(gtkconv->win, gtkconv);
+	gtk_window_present(GTK_WINDOW(gtkconv->win->window));
+}
+
 static void
 received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 				   PurpleConversation *conv, PurpleMessageFlags flags, void *data)
@@ -140,7 +153,7 @@ received_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 					senderName, flags);
 	hasFocus = purple_conversation_has_focus(conv);
 	if (!hasFocus) {
-		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText); 
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv); 
 		if (callResult) {
 			output_toast_error(callResult, "Failed to show Toast Notification");
 		} else {
@@ -191,7 +204,7 @@ received_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 					chatName, flags);
 	hasFocus = purple_conversation_has_focus(chat);
 	if (!hasFocus) {
-		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText);
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, chat);
 		if (callResult) {
 			output_toast_error(callResult, "Failed to show Toast Notification");
 		} else {
@@ -215,9 +228,7 @@ plugin_load(PurplePlugin *plugin) {
 
         initAdd = (initProc) GetProcAddress(hinstLib, "pidginWinToastLibInit"); 
         showToastProcAdd = (showToastProc) GetProcAddress(hinstLib, "pidginWinToastLibShowMessage"); 
- 
-        // If the function address is valid, call the function.
- 
+		
 		if (initAdd == NULL) {
 			purple_debug_misc("win_toast_notifications", "pidginWinToastLibInit not found!\n");
 		} else if (showToastProcAdd == NULL) {
@@ -227,7 +238,7 @@ plugin_load(PurplePlugin *plugin) {
 			void *conv_handle;
 			purple_debug_misc("win_toast_notifications",
 								"pidginWinToastLibInit called\n");
-            callResult = (initAdd)();
+            callResult = (initAdd)((void*)toast_clicked_cb);
 			if (callResult) {
 				output_toast_error(callResult, "Initialization failed");
 			} else {
