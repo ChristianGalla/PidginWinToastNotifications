@@ -139,7 +139,7 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	const char *iconPath = NULL;
 	PurpleConversationType convType = purple_conversation_get_type(conv);
 
-	if (flags & PURPLE_MESSAGE_RECV)
+	if (flags & PURPLE_MESSAGE_RECV && !(flags & PURPLE_MESSAGE_SYSTEM))
 	{
 		if ((convType == PURPLE_CONV_TYPE_IM &&
 			 purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_im")) ||
