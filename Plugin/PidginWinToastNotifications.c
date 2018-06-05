@@ -124,84 +124,8 @@ void toast_clicked_cb(PurpleConversation *conv)
 }
 
 static void
-displayed_im_msg_cb(PurpleAccount *account, char *sender, char *buffer,
-					PurpleConversation *conv, PurpleMessageFlags flags)
-{
-	int callResult;
-	const char *protocolName = NULL;
-	char *attrText = NULL;
-	PurpleBuddy *buddy = NULL;
-	const char *userName = NULL;
-	PurpleBuddyIcon *icon = NULL;
-	const char *iconPath = NULL;
-	gboolean hasFocus = FALSE;
-	const char *senderName = NULL;
-
-	if (flags & PURPLE_MESSAGE_RECV)
-	{
-		if (purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_im"))
-		{
-			buddy = purple_find_buddy(account, sender);
-			if (buddy != NULL)
-			{
-				purple_debug_misc("win_toast_notifications", "Received a direct message from a buddy\n");
-				senderName = purple_buddy_get_alias(buddy);
-				if (senderName == NULL)
-				{
-					senderName = purple_buddy_get_name(buddy);
-					if (senderName == NULL)
-					{
-						senderName = sender;
-					}
-				}
-				icon = purple_buddy_get_icon(buddy);
-				if (icon != NULL)
-				{
-					iconPath = purple_buddy_icon_get_full_path(icon);
-				}
-			}
-			else
-			{
-				purple_debug_misc("win_toast_notifications", "Received a direct message from someone who is not a buddy\n");
-				senderName = sender;
-			}
-
-			userName = purple_account_get_username(account);
-			protocolName = purple_account_get_protocol_name(account);
-			attrText = get_attr_text(protocolName, userName, NULL);
-
-			purple_debug_misc("win_toast_notifications", "received-im-msg (%s, %s, %s, %s, %s, %d)\n",
-							  protocolName, userName, sender, buffer,
-							  senderName, flags);
-			if (conv != NULL)
-			{
-				hasFocus = purple_conversation_has_focus(conv);
-			}
-			else
-			{
-				purple_debug_misc("win_toast_notifications", "PurpleConversation is NULL\n");
-				// @todo create conversation?
-			}
-			if (!hasFocus || purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_focus"))
-			{
-				callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv);
-				if (callResult)
-				{
-					output_toast_error(callResult, "Failed to show Toast Notification");
-				}
-				else
-				{
-					purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
-				}
-			}
-			free(attrText);
-		}
-	}
-}
-
-static void
-displayed_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
-					  PurpleConversation *chat, PurpleMessageFlags flags)
+displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
+				 PurpleConversation *conv, PurpleMessageFlags flags)
 {
 	const char *chatName = NULL;
 	const char *protocolName = NULL;
@@ -213,21 +137,21 @@ displayed_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	const char *senderName = NULL;
 	PurpleBuddyIcon *icon = NULL;
 	const char *iconPath = NULL;
+	PurpleConversationType convType = purple_conversation_get_type(conv);
 
 	if (flags & PURPLE_MESSAGE_RECV)
 	{
-		if (flags & PURPLE_MESSAGE_NICK)
-		{
-			purple_debug_misc("win_toast_notifications", "Received a chat message where the current user was mentioned\n");
-		}
-
-		if (purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat") ||
-			(purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned") && flags & PURPLE_MESSAGE_NICK))
+		if ((convType == PURPLE_CONV_TYPE_IM &&
+			 purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_im")) ||
+			(convType == PURPLE_CONV_TYPE_CHAT &&
+			 (purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat") ||
+			  (flags & PURPLE_MESSAGE_NICK &&
+			   purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned")))))
 		{
 			buddy = purple_find_buddy(account, sender);
 			if (buddy != NULL)
 			{
-				purple_debug_misc("win_toast_notifications", "Received a chat message from a buddy\n");
+				purple_debug_misc("win_toast_notifications", "Received a message from a buddy\n");
 				senderName = purple_buddy_get_alias(buddy);
 				if (senderName == NULL)
 				{
@@ -245,34 +169,34 @@ displayed_chat_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 			}
 			else
 			{
-				purple_debug_misc("win_toast_notifications", "Received a chat message from someone who is not a buddy\n");
+				purple_debug_misc("win_toast_notifications", "Received a message from someone who is not a buddy\n");
 				senderName = sender;
 			}
 
-			if (chat != NULL)
+			if (conv != NULL && convType == PURPLE_CONV_TYPE_CHAT)
 			{
-				chatName = purple_conversation_get_title(chat);
+				chatName = purple_conversation_get_title(conv);
 			}
 
 			userName = purple_account_get_username(account);
 			protocolName = purple_account_get_protocol_name(account);
 			attrText = get_attr_text(protocolName, userName, chatName);
 
-			purple_debug_misc("win_toast_notifications", "received-chat-msg (%s, %s, %s, %s, %s, %d)\n",
+			purple_debug_misc("win_toast_notifications", "displayed_msg_cb (%s, %s, %s, %s, %s, %d)\n",
 							  protocolName, userName, sender, buffer,
 							  chatName, flags);
-			if (chat != NULL)
+			if (conv != NULL)
 			{
-				hasFocus = purple_conversation_has_focus(chat);
+				hasFocus = purple_conversation_has_focus(conv);
 			}
 			else
 			{
 				purple_debug_misc("win_toast_notifications", "PurpleConversation is NULL\n");
-				// @todo create chat?
+				// @todo create conv?
 			}
 			if (!hasFocus || purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_focus"))
 			{
-				callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, chat);
+				callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv);
 				if (callResult)
 				{
 					output_toast_error(callResult, "Failed to show Toast Notification");
@@ -327,9 +251,9 @@ plugin_load(PurplePlugin *plugin)
 								  "pidginWinToastLibInit initialized\n");
 				conv_handle = pidgin_conversations_get_handle();
 				purple_signal_connect(conv_handle, "displayed-im-msg",
-									  plugin, PURPLE_CALLBACK(displayed_im_msg_cb), NULL);
+									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
 				purple_signal_connect(conv_handle, "displayed-chat-msg",
-									  plugin, PURPLE_CALLBACK(displayed_chat_msg_cb), NULL);
+									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
 			}
 		}
 	}
