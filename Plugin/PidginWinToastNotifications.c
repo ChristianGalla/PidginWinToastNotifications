@@ -16,6 +16,78 @@
 typedef int(__cdecl *initProc)(void (*clickCallback)(void *conv));
 typedef int(__cdecl *showToastProc)(const char *sender, const char *message, const char *imagePath, const char *protocolName, void *conv);
 
+struct status_options_paths {
+	const char * parent;
+	const char * enabled;
+	const char * for_im;
+	const char * for_chat;
+	const char * for_chat_mentioned;
+	const char * for_focus;
+};
+
+const struct status_options_paths labels = {
+	NULL,
+	"Enabled",
+	"Direct messages",
+	"Every message in chats",
+	"Messages in chats when mentioned",
+	"Even if the Window is focused"
+};
+
+const struct status_options_paths paths_default = {
+	"/plugins/gtk/gallax-win_toast_notifications",
+	NULL,
+	"/plugins/gtk/gallax-win_toast_notifications/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/for_focus"
+};
+
+const struct status_options_paths paths_available = {
+	"/plugins/gtk/gallax-win_toast_notifications/available",
+	"/plugins/gtk/gallax-win_toast_notifications/available/enabled",
+	"/plugins/gtk/gallax-win_toast_notifications/available/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/available/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/available/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/available/for_focus"
+};
+
+const struct status_options_paths paths_away = {
+	"/plugins/gtk/gallax-win_toast_notifications/away",
+	"/plugins/gtk/gallax-win_toast_notifications/away/enabled",
+	"/plugins/gtk/gallax-win_toast_notifications/away/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/away/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/away/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/away/for_focus"
+};
+
+const struct status_options_paths paths_unavailable = {
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable",
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable/enabled",
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_focus"
+};
+
+const struct status_options_paths paths_invisible = {
+	"/plugins/gtk/gallax-win_toast_notifications/invisible",
+	"/plugins/gtk/gallax-win_toast_notifications/invisible/enabled",
+	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_focus"
+};
+
+const struct status_options_paths paths_extended_away = {
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away",
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away/enabled",
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_im",
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_chat",
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_chat_mentioned",
+	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_focus"
+};
+
 HINSTANCE hinstLib;
 initProc initAdd;
 showToastProc showToastProcAdd;
@@ -23,6 +95,8 @@ showToastProc showToastProcAdd;
 void output_toast_error(int errorNumber, char *message);
 char *get_attr_text(const char *protocolName, const char *userName, const char *chatName);
 void toast_clicked_cb(PurpleConversation *conv);
+void add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status);
+gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags);
 
 void output_toast_error(int errorNumber, char *message)
 {
@@ -123,6 +197,72 @@ void toast_clicked_cb(PurpleConversation *conv)
 	gtk_window_present(GTK_WINDOW(gtkconv->win->window));
 }
 
+gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags) {
+	const struct status_options_paths * paths = &paths_default;
+	PurpleStatus * purpleStatus = NULL;
+	PurpleStatusType * statusType = NULL;
+	PurpleStatusPrimitive primStatus = 0;
+
+	if (!(flags & PURPLE_MESSAGE_RECV)) {
+		return FALSE;
+	}
+	if (flags & PURPLE_MESSAGE_SYSTEM) {
+		return FALSE;
+	}
+
+	purpleStatus = purple_account_get_active_status(account);
+	statusType = purple_status_get_type(purpleStatus);
+	primStatus = purple_status_type_get_primitive(statusType);
+	switch (primStatus) {
+		case PURPLE_STATUS_AVAILABLE:
+			if (purple_prefs_get_bool(paths_available.enabled)) {
+				paths = &paths_available;
+			}
+			break;
+		case PURPLE_STATUS_AWAY:
+			if (purple_prefs_get_bool(paths_away.enabled)) {
+				paths = &paths_away;
+			}
+			break;
+		case PURPLE_STATUS_EXTENDED_AWAY:
+			if (purple_prefs_get_bool(paths_extended_away.enabled)) {
+				paths = &paths_extended_away;
+			}
+			break;
+		case PURPLE_STATUS_UNAVAILABLE:
+			if (purple_prefs_get_bool(paths_unavailable.enabled)) {
+				paths = &paths_unavailable;
+			}
+			break;
+		case PURPLE_STATUS_INVISIBLE:
+			if (purple_prefs_get_bool(paths_invisible.enabled)) {
+				paths = &paths_invisible;
+			}
+			break;
+		default:
+			break;
+	}
+
+	if (convType == PURPLE_CONV_TYPE_IM) {
+		if (!purple_prefs_get_bool(paths->for_im)) {
+			return FALSE;
+		}
+	}
+	if (convType == PURPLE_CONV_TYPE_CHAT) {
+		if (!purple_prefs_get_bool(paths->for_chat)) {
+			if (!(flags & PURPLE_MESSAGE_NICK && purple_prefs_get_bool(paths->for_chat_mentioned))) {
+				return FALSE;
+			}
+		}
+	}
+	if (conv != NULL && purple_conversation_has_focus(conv) && !purple_prefs_get_bool(paths->for_focus))
+	{
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static void
 displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 				 PurpleConversation *conv, PurpleMessageFlags flags)
@@ -133,81 +273,60 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	char *attrText = NULL;
 	PurpleBuddy *buddy = NULL;
 	int callResult;
-	gboolean hasFocus = FALSE;
 	const char *senderName = NULL;
 	PurpleBuddyIcon *icon = NULL;
 	const char *iconPath = NULL;
 	PurpleConversationType convType = purple_conversation_get_type(conv);
 
-	if (flags & PURPLE_MESSAGE_RECV && !(flags & PURPLE_MESSAGE_SYSTEM))
+	if (should_show(account, conv, convType, flags))
 	{
-		if ((convType == PURPLE_CONV_TYPE_IM &&
-			 purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_im")) ||
-			(convType == PURPLE_CONV_TYPE_CHAT &&
-			 (purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat") ||
-			  (flags & PURPLE_MESSAGE_NICK &&
-			   purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned")))))
+		buddy = purple_find_buddy(account, sender);
+		if (buddy != NULL)
 		{
-			buddy = purple_find_buddy(account, sender);
-			if (buddy != NULL)
+			purple_debug_misc("win_toast_notifications", "Received a message from a buddy\n");
+			senderName = purple_buddy_get_alias(buddy);
+			if (senderName == NULL)
 			{
-				purple_debug_misc("win_toast_notifications", "Received a message from a buddy\n");
-				senderName = purple_buddy_get_alias(buddy);
+				senderName = purple_buddy_get_name(buddy);
 				if (senderName == NULL)
 				{
-					senderName = purple_buddy_get_name(buddy);
-					if (senderName == NULL)
-					{
-						senderName = sender;
-					}
-				}
-				icon = purple_buddy_get_icon(buddy);
-				if (icon != NULL)
-				{
-					iconPath = purple_buddy_icon_get_full_path(icon);
+					senderName = sender;
 				}
 			}
-			else
+			icon = purple_buddy_get_icon(buddy);
+			if (icon != NULL)
 			{
-				purple_debug_misc("win_toast_notifications", "Received a message from someone who is not a buddy\n");
-				senderName = sender;
+				iconPath = purple_buddy_icon_get_full_path(icon);
 			}
-
-			if (conv != NULL && convType == PURPLE_CONV_TYPE_CHAT)
-			{
-				chatName = purple_conversation_get_title(conv);
-			}
-
-			userName = purple_account_get_username(account);
-			protocolName = purple_account_get_protocol_name(account);
-			attrText = get_attr_text(protocolName, userName, chatName);
-
-			purple_debug_misc("win_toast_notifications", "displayed_msg_cb (%s, %s, %s, %s, %s, %d)\n",
-							  protocolName, userName, sender, buffer,
-							  chatName, flags);
-			if (conv != NULL)
-			{
-				hasFocus = purple_conversation_has_focus(conv);
-			}
-			else
-			{
-				purple_debug_misc("win_toast_notifications", "PurpleConversation is NULL\n");
-				// @todo create conv?
-			}
-			if (!hasFocus || purple_prefs_get_bool("/plugins/gtk/gallax-win_toast_notifications/for_focus"))
-			{
-				callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv);
-				if (callResult)
-				{
-					output_toast_error(callResult, "Failed to show Toast Notification");
-				}
-				else
-				{
-					purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
-				}
-			}
-			free(attrText);
 		}
+		else
+		{
+			purple_debug_misc("win_toast_notifications", "Received a message from someone who is not a buddy\n");
+			senderName = sender;
+		}
+
+		if (conv != NULL && convType == PURPLE_CONV_TYPE_CHAT)
+		{
+			chatName = purple_conversation_get_title(conv);
+		}
+
+		userName = purple_account_get_username(account);
+		protocolName = purple_account_get_protocol_name(account);
+		attrText = get_attr_text(protocolName, userName, chatName);
+
+		purple_debug_misc("win_toast_notifications", "displayed_msg_cb (%s, %s, %s, %s, %s, %d)\n",
+							protocolName, userName, sender, buffer,
+							chatName, flags);
+		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv);
+		if (callResult)
+		{
+			output_toast_error(callResult, "Failed to show Toast Notification");
+		}
+		else
+		{
+			purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
+		}
+		free(attrText);
 	}
 }
 
@@ -279,6 +398,67 @@ plugin_unload(PurplePlugin *plugin)
 	return TRUE;
 }
 
+void
+add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status)
+{
+	PurplePluginPref *ppref;
+	const char * title_lable = NULL;
+	const struct status_options_paths * paths = NULL;
+
+	switch (status) {
+		case PURPLE_STATUS_AVAILABLE:
+			paths = &paths_available;
+			title_lable = "If in status 'Available' instead notify for";
+			break;
+		case PURPLE_STATUS_AWAY:
+			title_lable = "If in status 'Away' instead notify for";
+			paths = &paths_away;
+			break;
+		case PURPLE_STATUS_UNAVAILABLE:
+			title_lable = "If in status 'Do not disturb' instead notify for";
+			paths = &paths_unavailable;
+			break;
+		case PURPLE_STATUS_EXTENDED_AWAY:
+			title_lable = "If in status 'Extended away' away instead notify for";
+			paths = &paths_extended_away;
+			break;
+		case PURPLE_STATUS_INVISIBLE:
+			title_lable = "If in status 'Invisible' instead notify for";
+			paths = &paths_invisible;
+			break;
+		default:
+			return;
+	}
+
+	ppref = purple_plugin_pref_new_with_label(title_lable);
+	purple_plugin_pref_frame_add(frame, ppref);
+
+	ppref = purple_plugin_pref_new_with_name_and_label(
+		paths->enabled,
+		labels.enabled);
+	purple_plugin_pref_frame_add(frame, ppref);
+
+	ppref = purple_plugin_pref_new_with_name_and_label(
+		paths->for_im,
+		labels.for_im);
+	purple_plugin_pref_frame_add(frame, ppref);
+
+	ppref = purple_plugin_pref_new_with_name_and_label(
+		paths->for_chat,
+		labels.for_chat);
+	purple_plugin_pref_frame_add(frame, ppref);
+
+	ppref = purple_plugin_pref_new_with_name_and_label(
+		paths->for_chat_mentioned,
+		labels.for_chat_mentioned);
+	purple_plugin_pref_frame_add(frame, ppref);
+
+	ppref = purple_plugin_pref_new_with_name_and_label(
+		paths->for_focus,
+		labels.for_focus);
+	purple_plugin_pref_frame_add(frame, ppref);
+}
+
 static PurplePluginPrefFrame *
 get_plugin_pref_frame(PurplePlugin *plugin)
 {
@@ -287,28 +467,34 @@ get_plugin_pref_frame(PurplePlugin *plugin)
 
 	frame = purple_plugin_pref_frame_new();
 
-	ppref = purple_plugin_pref_new_with_label("Notify for");
+	ppref = purple_plugin_pref_new_with_label("In every status notify for");
 	purple_plugin_pref_frame_add(frame, ppref);
 
 	ppref = purple_plugin_pref_new_with_name_and_label(
-		"/plugins/gtk/gallax-win_toast_notifications/for_im",
-		"Direct messages");
+		paths_default.for_im,
+		labels.for_im);
 	purple_plugin_pref_frame_add(frame, ppref);
 
 	ppref = purple_plugin_pref_new_with_name_and_label(
-		"/plugins/gtk/gallax-win_toast_notifications/for_chat",
-		"Messages in chats");
+		paths_default.for_chat,
+		labels.for_chat);
 	purple_plugin_pref_frame_add(frame, ppref);
 
 	ppref = purple_plugin_pref_new_with_name_and_label(
-		"/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned",
-		"Messages in chats when mentioned");
+		paths_default.for_chat_mentioned,
+		labels.for_chat_mentioned);
 	purple_plugin_pref_frame_add(frame, ppref);
 
 	ppref = purple_plugin_pref_new_with_name_and_label(
-		"/plugins/gtk/gallax-win_toast_notifications/for_focus",
-		"Even if the Window is focused");
+		paths_default.for_focus,
+		labels.for_focus);
 	purple_plugin_pref_frame_add(frame, ppref);
+
+	add_status_specific_pref(frame, PURPLE_STATUS_AVAILABLE);
+	add_status_specific_pref(frame, PURPLE_STATUS_AWAY);
+	add_status_specific_pref(frame, PURPLE_STATUS_UNAVAILABLE);
+	add_status_specific_pref(frame, PURPLE_STATUS_INVISIBLE);
+	add_status_specific_pref(frame, PURPLE_STATUS_EXTENDED_AWAY);
 
 	return frame;
 }
@@ -358,11 +544,46 @@ static PurplePluginInfo info = {
 static void
 init_plugin(PurplePlugin *plugin)
 {
-	purple_prefs_add_none("/plugins/gtk/gallax-win_toast_notifications");
-	purple_prefs_add_bool("/plugins/gtk/gallax-win_toast_notifications/for_im", TRUE);
-	purple_prefs_add_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat", TRUE);
-	purple_prefs_add_bool("/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned", TRUE);
-	purple_prefs_add_bool("/plugins/gtk/gallax-win_toast_notifications/for_focus", FALSE);
+	purple_prefs_add_none(paths_default.parent);
+	purple_prefs_add_bool(paths_default.for_im, TRUE);
+	purple_prefs_add_bool(paths_default.for_chat, TRUE);
+	purple_prefs_add_bool(paths_default.for_chat_mentioned, TRUE);
+	purple_prefs_add_bool(paths_default.for_focus, FALSE);
+	
+	purple_prefs_add_none(paths_available.parent);
+	purple_prefs_add_bool(paths_available.enabled, FALSE);
+	purple_prefs_add_bool(paths_available.for_im, TRUE);
+	purple_prefs_add_bool(paths_available.for_chat, TRUE);
+	purple_prefs_add_bool(paths_available.for_chat_mentioned, TRUE);
+	purple_prefs_add_bool(paths_available.for_focus, FALSE);
+	
+	purple_prefs_add_none(paths_away.parent);
+	purple_prefs_add_bool(paths_away.enabled, FALSE);
+	purple_prefs_add_bool(paths_away.for_im, TRUE);
+	purple_prefs_add_bool(paths_away.for_chat, FALSE);
+	purple_prefs_add_bool(paths_away.for_chat_mentioned, TRUE);
+	purple_prefs_add_bool(paths_away.for_focus, FALSE);
+	
+	purple_prefs_add_none(paths_unavailable.parent);
+	purple_prefs_add_bool(paths_unavailable.enabled, TRUE);
+	purple_prefs_add_bool(paths_unavailable.for_im, FALSE);
+	purple_prefs_add_bool(paths_unavailable.for_chat, FALSE);
+	purple_prefs_add_bool(paths_unavailable.for_chat_mentioned, FALSE);
+	purple_prefs_add_bool(paths_unavailable.for_focus, FALSE);
+	
+	purple_prefs_add_none(paths_invisible.parent);
+	purple_prefs_add_bool(paths_invisible.enabled, FALSE);
+	purple_prefs_add_bool(paths_invisible.for_im, TRUE);
+	purple_prefs_add_bool(paths_invisible.for_chat, FALSE);
+	purple_prefs_add_bool(paths_invisible.for_chat_mentioned, TRUE);
+	purple_prefs_add_bool(paths_invisible.for_focus, FALSE);
+	
+	purple_prefs_add_none(paths_extended_away.parent);
+	purple_prefs_add_bool(paths_extended_away.enabled, FALSE);
+	purple_prefs_add_bool(paths_extended_away.for_im, TRUE);
+	purple_prefs_add_bool(paths_extended_away.for_chat, FALSE);
+	purple_prefs_add_bool(paths_extended_away.for_chat_mentioned, TRUE);
+	purple_prefs_add_bool(paths_extended_away.for_focus, FALSE);
 }
 
 PURPLE_INIT_PLUGIN(win_toast_notifications, init_plugin, info)
