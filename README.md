@@ -36,6 +36,10 @@ To display the protocol, account and chat name in the toast notifications the Wi
 
 If you experience any problems, feel free to open an issue.
 
+## Changelog
+
+All changes between versions are documented in the file [CHANGELOG.md](./CHANGELOG.md).
+
 ## Installation
 
 1.  Download the dll files from the [newest release](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest).
