@@ -61,7 +61,7 @@ extern "C" int pidginWinToastLibInit(void(*_clickCallback)(void *conv))
 	try {
 		WinToast::instance()->setAppName(L"Pidgin");
 		WinToast::instance()->setAppUserModelId(
-			WinToast::configureAUMI(L"GallaChristian", L"Pidgin"));
+			WinToast::configureAUMI(L"Pidgin", L"Pidgin"));
 
         WinToast::WinToastError error;
         isInit = WinToast::instance()->initialize(&error);
