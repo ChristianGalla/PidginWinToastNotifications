@@ -6,17 +6,25 @@ Shows notifications on message receive in the standard Windows design.
 
 Direct message from someone who has a profile picture:
 
-![Direct message with picture](/img/direct_with_picture.jpg "Direct message with picture")
+![Direct message with picture](./img/direct_with_picture.jpg "Direct message with picture")
 
 Direct message from someone who has no profile picture:
 
-![Direct message without picture](/img/direct_without_picture.jpg "Direct message without picture")
+![Direct message without picture](./img/direct_without_picture.jpg "Direct message without picture")
 
 Chat message from someone who has no profile picture:
 
-![Chat message without picture](/img/chat_without_picture.jpg "Chat message without picture")
+![Chat message without picture](./img/chat_without_picture.jpg "Chat message without picture")
 
 This plugin uses Pidgin's standard C API so no other tools like Perl are required.
+
+## Features
+
+![Configuration](./img/configuration.png "Configuration")
+
+It can be configured if notifications should be shown for direct messages, every message in chats, only for messages in chats when mentioned or only if the conversation window is not focused.
+
+This configuration can be overwritten per status (Available, Away, Do not disturb, Extended away or Invisible).
 
 ## Supported operating systems
 
