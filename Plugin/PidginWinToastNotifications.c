@@ -31,7 +31,7 @@ const struct status_options_paths labels = {
 	"Direct messages",
 	"Every message in chats",
 	"Messages in chats when mentioned",
-	"Even if the Window is focused"
+	"Even if the window is focused"
 };
 
 const struct status_options_paths paths_default = {
