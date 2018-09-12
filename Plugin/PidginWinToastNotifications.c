@@ -330,10 +330,68 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	}
 }
 
+static void local_settings_dialog_destroy_cb(GtkWidget *w, void *data)
+{
+	// free(data);
+}
+
+static void local_settings_dialog_response_cb(GtkWidget *dialog, gint resp, void *data)
+{
+    gtk_widget_destroy(dialog);
+}
+
+static void
+show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
+{
+	GtkWidget *dialog;
+	GtkWidget *label;
+	char *markup;
+	gchar *label_markup = "<span weight=\"bold\">%s</span>";
+
+	dialog = gtk_dialog_new_with_buttons(
+		"Local Windows Toast Notifications Settings",
+	    NULL,
+		0,
+	    GTK_STOCK_CLOSE,
+		GTK_RESPONSE_CLOSE,
+	    NULL);
+	gtk_widget_set_size_request(dialog, 300, -1);
+	gtk_container_set_border_width(GTK_CONTAINER(dialog), 6);
+    gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+    gtk_box_set_spacing(GTK_BOX(GTK_DIALOG(dialog)->vbox), 0);
+    gtk_container_set_border_width(GTK_CONTAINER(GTK_DIALOG(dialog)->vbox), 0);
+
+	label = gtk_label_new(NULL);
+	markup = g_markup_printf_escaped(label_markup, "In every status notify for");
+	gtk_label_set_markup(GTK_LABEL(label), markup);
+	g_free(markup);
+	gtk_misc_set_alignment(GTK_MISC(label), 0, 0);
+	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), label, FALSE, FALSE, 5);
+	
+	g_signal_connect(G_OBJECT(dialog), "destroy",
+	    G_CALLBACK(local_settings_dialog_destroy_cb), NULL);
+    g_signal_connect(G_OBJECT(dialog), "response",
+	    G_CALLBACK(local_settings_dialog_response_cb), NULL);
+
+	gtk_widget_show_all(dialog);
+}
+
+static void
+context_menu(PurpleBlistNode *node, GList **menu, gpointer plugin)
+{
+	PurpleMenuAction *action;
+
+	if (!PURPLE_BLIST_NODE_IS_BUDDY(node) & !PURPLE_BLIST_NODE_IS_CHAT(node)) {
+		return;
+	}
+	action = purple_menu_action_new("Local Windows Toast Notifications Settings",
+					PURPLE_CALLBACK(show_local_settings_dialog), plugin, NULL);
+	(*menu) = g_list_prepend(*menu, action);
+}
+
 static gboolean
 plugin_load(PurplePlugin *plugin)
 {
-
 	purple_debug_misc("win_toast_notifications", "loading...\n");
 	hinstLib = LoadLibrary(TEXT("PidginWinToastLib.dll"));
 
@@ -381,6 +439,8 @@ plugin_load(PurplePlugin *plugin)
 		purple_debug_misc("win_toast_notifications",
 						  "failed to load dll\n");
 	}
+	purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu", plugin,
+						PURPLE_CALLBACK(context_menu), plugin);
 
 	return TRUE;
 }
