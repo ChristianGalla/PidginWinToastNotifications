@@ -18,8 +18,13 @@ typedef int(__cdecl *showToastProc)(const char *sender, const char *message, con
 
 const char *base_settings_path = "/plugins/gtk/gallax-win_toast_notifications";
 
+struct charListNode {
+    char *str;
+	struct charListNode *next;
+};
+
 struct localSettingsData {
-    GtkWidget *local_overwrite;
+    struct charListNode *paths;
 };
 
 struct status_options_paths {
@@ -107,8 +112,8 @@ static void toast_clicked_cb(PurpleConversation *conv);
 static void add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status);
 static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags);
 static void displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer, PurpleConversation *conv, PurpleMessageFlags flags);
-static void local_overwrite_clicked_cb(GtkButton *button, struct localSettingsData *data);
-static void local_settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data);
+static void button_clicked_cb(GtkButton *button, char *path);
+static void settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data);
 static void local_settings_dialog_response_cb(GtkWidget *dialog, gint resp, struct localSettingsData *data);
 static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin);
 static void context_menu(PurpleBlistNode *node, GList **menu, gpointer plugin);
@@ -120,6 +125,35 @@ static void init_plugin(PurplePlugin *plugin);
 static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, char *protocol_id, char *account_name, char *buddy_name);
 static const char* get_setting_sub_path(Setting setting);
 static const char* get_buddy_type_sub_path(Buddy_type buddy_type);
+static void add_setting_button(
+	PurpleStatusPrimitive status,
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data,
+	Setting setting,
+	char *labelText
+);
+static void add_setting_buttons(
+	PurpleStatusPrimitive status,
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data,
+	char *labelText
+);
+static void add_setting_groups(
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data
+);
 
 static const char* get_setting_sub_path(Setting setting) {
 	switch (setting) {
@@ -154,7 +188,7 @@ static const char* get_buddy_type_sub_path(Buddy_type buddy_type) {
 static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, char *protocol_id, char *account_name, char *buddy_name) {
 	// global example: "/plugins/gtk/gallax-win_toast_notifications/global/available/enabled"
 	// buddy example: "/plugins/gtk/gallax-win_toast_notifications/buddy/<protocol_id>/<account_name>/<buddy_name>/available/enabled"
-	// xmpp example: "/plugins/gtk/gallax-win_toast_notifications/buddy/<protocol_id>/<account_name>/<ressource_name>/<buddy_name>/<ressource_name>/available/enabled"
+	// chat example: "/plugins/gtk/gallax-win_toast_notifications/chat/<protocol_id>/<account_name>/<chat_name>/available/enabled"
 	char *ret = 0;
 	const char *statusStr = 0;
 	const char *settingStr = 0;
@@ -169,6 +203,7 @@ static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Bu
 	int buddyTypeSize = 0;
 	int buddyNameSize = 0;
 
+	char * pch = 0;
 	int targetPos = 0;
 
 	statusStr = purple_primitive_get_id_from_type(status);
@@ -181,8 +216,19 @@ static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Bu
 	settingSize = strlen(settingStr);
 	if (buddy_type != BUDDY_TYPE_GLOBAL) {
 		protocolSize = strlen(protocol_id) + 1;
-		accountSize = strlen(account_name) + 1;
-		buddyNameSize = strlen(buddy_name) + 1;
+		// ignore anything behind a '/', like a XMPP ressource
+		accountSize = strlen(account_name);
+		pch=strchr(account_name,'/');
+		if (pch != NULL) {
+			accountSize = pch - account_name;
+		}
+		accountSize++;
+		buddyNameSize = strlen(buddy_name);
+		pch=strchr(buddy_name,'/');
+		if (pch != NULL) {
+			buddyNameSize = pch - buddy_name;
+		}
+		buddyNameSize++;
 	}
 
 	size = basePathSize + statusSize + settingSize + protocolSize + buddyTypeSize + accountSize + buddyNameSize + 1;
@@ -489,18 +535,27 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	}
 }
 
-static void local_overwrite_clicked_cb(GtkButton *button, struct localSettingsData *data)
+static void button_clicked_cb(GtkButton *button, char *path)
 {
-    gboolean local_overwrite = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(data->local_overwrite));
-    if (local_overwrite) {
-		purple_debug_misc("win_toast_notifications", "local_overwrite enabled\n");
+    gboolean enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
+    if (enabled) {
+		purple_debug_misc("win_toast_notifications", "%s enabled\n", path);
     } else {
-		purple_debug_misc("win_toast_notifications", "local_overwrite disabled\n");
+		purple_debug_misc("win_toast_notifications", "%s disabled\n", path);
     }
 }
 
-static void local_settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data)
+static void settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data)
 {
+	struct charListNode *node = 0;
+	struct charListNode *lastNode = 0;
+	node = data->paths;
+	while (node != 0) {
+		free(node->str);
+		lastNode = node;
+		node = node->next;
+		free(lastNode);
+	}
 	free(data);
 }
 
@@ -509,28 +564,211 @@ static void local_settings_dialog_response_cb(GtkWidget *dialog, gint resp, stru
     gtk_widget_destroy(dialog);
 }
 
+static void add_setting_button(
+	PurpleStatusPrimitive status,
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data,
+	Setting setting,
+	char *labelText
+) {
+	GtkWidget * button;
+	char *path;
+	struct charListNode *node;
+
+	button = gtk_check_button_new_with_label(labelText);
+	gtk_container_add(GTK_CONTAINER(vbox), button);
+	path = get_settings_path(status, setting, buddy_type, protocol_id, account_name, buddy_name);
+	node = malloc(sizeof(struct charListNode));
+	node->next = data->paths;
+	data->paths = node;
+	node->str = path;
+	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(button_clicked_cb), path);
+}
+
+static void add_setting_buttons(
+	PurpleStatusPrimitive status,
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data,
+	char *labelText
+) {
+	GtkWidget *label;
+	char *markup;
+	gchar *label_markup = "<span weight=\"bold\">%s</span>";
+
+	label = gtk_label_new(NULL);
+	markup = g_markup_printf_escaped(label_markup, labelText);
+	gtk_label_set_markup(GTK_LABEL(label), markup);
+	g_free(markup);
+	gtk_misc_set_alignment(GTK_MISC(label), 0, 0);
+	gtk_container_add(GTK_CONTAINER(vbox), label);
+
+	add_setting_button(
+		status,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		SETTING_ENABLED,
+		"Enabled"
+	);
+	if (buddy_type != BUDDY_TYPE_CHAT) {
+		add_setting_button(
+			status,
+			buddy_type,
+			protocol_id,
+			account_name,
+			buddy_name,
+			vbox,
+			data,
+			SETTING_FOR_IM,
+			"Direct messages"
+		);
+	}
+	if (buddy_type != BUDDY_TYPE_BUDDY) {
+		add_setting_button(
+			status,
+			buddy_type,
+			protocol_id,
+			account_name,
+			buddy_name,
+			vbox,
+			data,
+			SETTING_FOR_CHAT,
+			"Every message in chats"
+		);
+		add_setting_button(
+			status,
+			buddy_type,
+			protocol_id,
+			account_name,
+			buddy_name,
+			vbox,
+			data,
+			SETTING_FOR_CHAT_MENTIONED,
+			"Messages in chats when mentioned"
+		);
+	}
+	add_setting_button(
+		status,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		SETTING_FOR_FOCUS,
+		"Even if the window is focused"
+	);
+}
+
+static void add_setting_groups(
+	Buddy_type buddy_type,
+	char *protocol_id,
+	char *account_name,
+	char *buddy_name,
+	GtkWidget *vbox,
+	struct localSettingsData *data
+) {
+	add_setting_buttons(
+		PURPLE_STATUS_UNSET,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"In every status notify for"
+	);
+	add_setting_buttons(
+		PURPLE_STATUS_AVAILABLE,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"If in status 'Available' instead notify for"
+	);
+	add_setting_buttons(
+		PURPLE_STATUS_AWAY,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"If in status 'Away' instead notify for"
+	);
+	add_setting_buttons(
+		PURPLE_STATUS_UNAVAILABLE,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"If in status 'Do not disturb' instead notify for"
+	);
+	add_setting_buttons(
+		PURPLE_STATUS_INVISIBLE,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"If in status 'Invisible' instead notify for"
+	);
+	add_setting_buttons(
+		PURPLE_STATUS_EXTENDED_AWAY,
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data,
+		"If in status 'Extended away' instead notify for"
+	);
+}
+
 static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 {
 	PurplePlugin *prpl;
 	PurplePluginProtocolInfo *prpl_info = NULL;
 	struct localSettingsData *data;
 	GtkWidget *dialog;
+	GtkWidget *scrolled_window;
+	GtkWidget *vbox;
 	GtkWidget *label;
-	char *markup;
-	GtkWidget * button;
+	Buddy_type buddy_type;
 	PurpleBuddy * buddyNode;
 	PurpleChat * chatNode;
 	char *chatName;
-	char *path;
-	gchar *label_markup = "<span weight=\"bold\">%s</span>";
+	char *account_name;
+	char *buddy_name;
+	char *protocol_id;
 
-	path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
-	purple_debug_misc("win_toast_notifications", "path: %s\n", path);
+	// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+	// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
 	if (PURPLE_BLIST_NODE_IS_BUDDY(node)) {
 		buddyNode = (PurpleBuddy*) node;
 		purple_debug_misc("win_toast_notifications", "Open local settings dialog for buddy: %s, protocol: %s, username: %s\n", buddyNode->name, buddyNode->account->protocol_id, buddyNode->account->username);
-		path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_BUDDY, buddyNode->account->protocol_id, buddyNode->account->username, buddyNode->name);
-		purple_debug_misc("win_toast_notifications", "path: %s\n", path);
+		// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_BUDDY, buddyNode->account->protocol_id, buddyNode->account->username, buddyNode->name);
+		// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
+		buddy_type = BUDDY_TYPE_BUDDY;
+		account_name = buddyNode->account->username;
+		buddy_name = buddyNode->name;
+		protocol_id = buddyNode->account->protocol_id;
 	} else if (PURPLE_BLIST_NODE_IS_CHAT(node)) {
 		chatNode = (PurpleChat*) node;
 		prpl = purple_find_prpl(purple_account_get_protocol_id(chatNode->account));
@@ -543,8 +781,12 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 			g_list_foreach(parts, (GFunc)g_free, NULL);
 			g_list_free(parts);
 			purple_debug_misc("win_toast_notifications", "Open local settings dialog for chat: %s, protocol: %s, username: %s\n", chatName, chatNode->account->protocol_id, chatNode->account->username);
-			path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_CHAT, chatNode->account->protocol_id, chatNode->account->username, chatName);
-			purple_debug_misc("win_toast_notifications", "path: %s\n", path);
+			// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_CHAT, chatNode->account->protocol_id, chatNode->account->username, chatName);
+			// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
+			buddy_type = BUDDY_TYPE_CHAT;
+			account_name = chatNode->account->username;
+			buddy_name = chatName;
+			protocol_id = chatNode->account->protocol_id;
 		} else {
 			purple_debug_error("win_toast_notifications", "Cannot open local settings dialog for chat because it has no chat_info");
 			return;
@@ -554,6 +796,7 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 	}
 
 	data = malloc(sizeof(struct localSettingsData));
+	data->paths = 0;
 
 	dialog = gtk_dialog_new_with_buttons(
 		"Local Windows Toast Notifications Settings",
@@ -562,27 +805,34 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 	    GTK_STOCK_CLOSE,
 		GTK_RESPONSE_CLOSE,
 	    NULL);
-	gtk_widget_set_size_request(dialog, 300, -1);
+	gtk_widget_set_size_request(dialog, 400, 400);
 	gtk_container_set_border_width(GTK_CONTAINER(dialog), 6);
-    gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
     gtk_box_set_spacing(GTK_BOX(GTK_DIALOG(dialog)->vbox), 0);
     gtk_container_set_border_width(GTK_CONTAINER(GTK_DIALOG(dialog)->vbox), 0);
 
-	button = gtk_check_button_new_with_label("Overwrite global settings for this conversation");
-	// gtk_misc_set_alignment(GTK_MISC(button), 0, 0);
-	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), button, FALSE, FALSE, 5);
-	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(local_overwrite_clicked_cb), data);
-	data->local_overwrite = button;
+	scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW (scrolled_window),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);				
+    gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), scrolled_window, 
+			TRUE, TRUE, 0);
+	vbox = gtk_vbox_new(FALSE, 5);
+	gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(scrolled_window), vbox);
 
-	label = gtk_label_new(NULL);
-	markup = g_markup_printf_escaped(label_markup, "In every status notify for");
-	gtk_label_set_markup(GTK_LABEL(label), markup);
-	g_free(markup);
+	label = gtk_label_new("Overwrite global settings for this conversation");
 	gtk_misc_set_alignment(GTK_MISC(label), 0, 0);
-	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), label, FALSE, FALSE, 5);
+	gtk_container_add(GTK_CONTAINER(vbox), label);
+
+	add_setting_groups(
+		buddy_type,
+		protocol_id,
+		account_name,
+		buddy_name,
+		vbox,
+		data
+	);
 	
 	g_signal_connect(G_OBJECT(dialog), "destroy",
-	    G_CALLBACK(local_settings_dialog_destroy_cb), data);
+	    G_CALLBACK(settings_dialog_destroy_cb), data);
     g_signal_connect(G_OBJECT(dialog), "response",
 	    G_CALLBACK(local_settings_dialog_response_cb), data);
 
