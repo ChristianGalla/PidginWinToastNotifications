@@ -45,60 +45,6 @@ const struct status_options_paths labels = {
 	"Even if the window is focused"
 };
 
-const struct status_options_paths paths_default = {
-	"/plugins/gtk/gallax-win_toast_notifications",
-	NULL,
-	"/plugins/gtk/gallax-win_toast_notifications/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/for_focus"
-};
-
-const struct status_options_paths paths_available = {
-	"/plugins/gtk/gallax-win_toast_notifications/available",
-	"/plugins/gtk/gallax-win_toast_notifications/available/enabled",
-	"/plugins/gtk/gallax-win_toast_notifications/available/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/available/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/available/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/available/for_focus"
-};
-
-const struct status_options_paths paths_away = {
-	"/plugins/gtk/gallax-win_toast_notifications/away",
-	"/plugins/gtk/gallax-win_toast_notifications/away/enabled",
-	"/plugins/gtk/gallax-win_toast_notifications/away/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/away/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/away/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/away/for_focus"
-};
-
-const struct status_options_paths paths_unavailable = {
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable",
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable/enabled",
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/unavailable/for_focus"
-};
-
-const struct status_options_paths paths_invisible = {
-	"/plugins/gtk/gallax-win_toast_notifications/invisible",
-	"/plugins/gtk/gallax-win_toast_notifications/invisible/enabled",
-	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/invisible/for_focus"
-};
-
-const struct status_options_paths paths_extended_away = {
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away",
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away/enabled",
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_im",
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_chat",
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_chat_mentioned",
-	"/plugins/gtk/gallax-win_toast_notifications/extended_away/for_focus"
-};
-
 HINSTANCE hinstLib;
 initProc initAdd;
 showToastProc showToastProcAdd;
@@ -109,8 +55,7 @@ typedef enum {BUDDY_TYPE_GLOBAL, BUDDY_TYPE_BUDDY, BUDDY_TYPE_CHAT} Buddy_type;
 static void output_toast_error(int errorNumber, char *message);
 static char* get_attr_text(const char *protocolName, const char *userName, const char *chatName);
 static void toast_clicked_cb(PurpleConversation *conv);
-static void add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status);
-static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags);
+static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags, const char *sender);
 static void displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer, PurpleConversation *conv, PurpleMessageFlags flags);
 static void button_clicked_cb(GtkButton *button, char *path);
 static void settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data);
@@ -119,11 +64,9 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin);
 static void context_menu(PurpleBlistNode *node, GList **menu, gpointer plugin);
 static gboolean plugin_load(PurplePlugin *plugin);
 static gboolean plugin_unload(PurplePlugin *plugin);
-static void add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status);
-static PurplePluginPrefFrame * get_plugin_pref_frame(PurplePlugin *plugin);
 static void init_plugin(PurplePlugin *plugin);
-static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, char *protocol_id, char *account_name, char *buddy_name);
-static const char* get_setting_sub_path(Setting setting);
+static char* get_prefs_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name);
+static const char* get_prefs_sub_path(Setting setting);
 static const char* get_buddy_type_sub_path(Buddy_type buddy_type);
 static void add_setting_button(
 	PurpleStatusPrimitive status,
@@ -154,8 +97,32 @@ static void add_setting_groups(
 	GtkWidget *vbox,
 	struct localSettingsData *data
 );
+static void ensure_prefs_path(const char *path);
+static void ensure_pref_default(PurpleStatusPrimitive status, Setting setting, gboolean value);
+static void set_default_prefs();
+static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name);
+GtkWidget * get_config_frame(PurplePlugin *plugin);
 
-static const char* get_setting_sub_path(Setting setting) {
+static void ensure_prefs_path(const char *path) {
+	char *subPath;
+	int i = 0;
+	gboolean exists;
+	while (path[i] != '\0') {
+		if (i > 0 && path[i] == '/') {
+			subPath = (char *) malloc((i+1) * sizeof(char));
+			memcpy(subPath, path, i); // copy everything except '/'
+			subPath[i] = '\0';
+			exists = purple_prefs_exists(subPath);
+			if (!exists) {
+				purple_prefs_add_none(subPath);
+			}
+			free(subPath);
+		}
+		i++;
+	}
+}
+
+static const char* get_prefs_sub_path(Setting setting) {
 	switch (setting) {
 		case SETTING_ENABLED:
 			return "/enabled";
@@ -185,7 +152,7 @@ static const char* get_buddy_type_sub_path(Buddy_type buddy_type) {
 	}
 }
 
-static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, char *protocol_id, char *account_name, char *buddy_name) {
+static char* get_prefs_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name) {
 	// global example: "/plugins/gtk/gallax-win_toast_notifications/global/available/enabled"
 	// buddy example: "/plugins/gtk/gallax-win_toast_notifications/buddy/<protocol_id>/<account_name>/<buddy_name>/available/enabled"
 	// chat example: "/plugins/gtk/gallax-win_toast_notifications/chat/<protocol_id>/<account_name>/<chat_name>/available/enabled"
@@ -207,7 +174,7 @@ static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Bu
 	int targetPos = 0;
 
 	statusStr = purple_primitive_get_id_from_type(status);
-	settingStr = get_setting_sub_path(setting);
+	settingStr = get_prefs_sub_path(setting);
 	buddyTypeStr = get_buddy_type_sub_path(buddy_type);
 
 	basePathSize = strlen(base_settings_path);
@@ -261,15 +228,39 @@ static char* get_settings_path(PurpleStatusPrimitive status, Setting setting, Bu
 	return ret;
 }
 
-static PurplePluginUiInfo prefs_info = {
-	get_plugin_pref_frame,
-	0,	/* page_num (Reserved) */
-	NULL, /* frame (Reserved) */
-	/* Padding */
+GtkWidget * get_config_frame(PurplePlugin *plugin) {
+	struct localSettingsData *data;
+	GtkWidget *vbox;
+
+	data = malloc(sizeof(struct localSettingsData));
+	data->paths = 0;
+
+	vbox = gtk_vbox_new(FALSE, 5);
+
+	add_setting_groups(
+		BUDDY_TYPE_GLOBAL,
+		NULL,
+		NULL,
+		NULL,
+		vbox,
+		data
+	);
+	
+	g_signal_connect(G_OBJECT(vbox), "destroy",
+	    G_CALLBACK(settings_dialog_destroy_cb), data);
+
+	gtk_widget_show_all(vbox);
+	return vbox;
+}
+
+static PidginPluginUiInfo pidgin_plugin_info = {
+	get_config_frame,
+	0,
 	NULL,
 	NULL,
 	NULL,
-	NULL};
+	NULL
+};
 
 static PurplePluginInfo info = {
 	PURPLE_PLUGIN_MAGIC,
@@ -294,14 +285,15 @@ static PurplePluginInfo info = {
 	plugin_unload,
 	NULL,
 
-	NULL,
-	NULL,
-	&prefs_info,
-	NULL,
+	&pidgin_plugin_info,
 	NULL,
 	NULL,
 	NULL,
-	NULL};
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
 
 static void output_toast_error(int errorNumber, char *message)
 {
@@ -402,11 +394,110 @@ static void toast_clicked_cb(PurpleConversation *conv)
 	gtk_window_present(GTK_WINDOW(gtkconv->win->window));
 }
 
-static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags) {
-	const struct status_options_paths * paths = &paths_default;
+static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name) {
+	char *path;
+	gboolean exists;
+	gboolean value;
+
+	purple_debug_misc("win_toast_notifications", "Checking effective settings\n");
+
+	// check buddy setting for status
+	path = get_prefs_path(status, SETTING_ENABLED, buddy_type, protocol_id, account_name, buddy_name);
+	exists = purple_prefs_exists(path);
+	if (exists) {
+		if (purple_prefs_get_bool(path)) {
+			purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for status: %s\n", path);
+			free(path);
+			path = get_prefs_path(status, setting, buddy_type, protocol_id, account_name, buddy_name);
+			exists = purple_prefs_exists(path);
+			if (exists) {
+				value = purple_prefs_get_bool(path);
+				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+				free(path);
+				return value;
+			} else {
+				free(path);
+			}
+		} else {
+			free(path);
+		}
+	}
+
+	// check buddy setting for unset status
+	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, buddy_type, protocol_id, account_name, buddy_name);
+	exists = purple_prefs_exists(path);
+	if (exists) {
+		if (purple_prefs_get_bool(path)) {
+			purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for unset status: %s\n", path);
+			free(path);
+			path = get_prefs_path(PURPLE_STATUS_UNSET, setting, buddy_type, protocol_id, account_name, buddy_name);
+			exists = purple_prefs_exists(path);
+			if (exists) {
+				value = purple_prefs_get_bool(path);
+				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+				free(path);
+				return value;
+			} else {
+				free(path);
+			}
+		} else {
+			free(path);
+		}
+	}
+
+	// check global setting for status
+	path = get_prefs_path(status, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+	exists = purple_prefs_exists(path);
+	if (exists) {
+		if (purple_prefs_get_bool(path)) {
+			purple_debug_misc("win_toast_notifications", "Found enabled global setting for status: %s\n", path);
+			free(path);
+			path = get_prefs_path(status, setting, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+			exists = purple_prefs_exists(path);
+			if (exists) {
+				value = purple_prefs_get_bool(path);
+				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+				free(path);
+				return value;
+			} else {
+				free(path);
+			}
+		} else {
+			free(path);
+		}
+	}
+
+	// check global setting for unset status
+	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+	exists = purple_prefs_exists(path);
+	if (exists) {
+		if (purple_prefs_get_bool(path)) {
+			purple_debug_misc("win_toast_notifications", "Found enabled global setting for unset status: %s\n", path);
+			free(path);
+			path = get_prefs_path(PURPLE_STATUS_UNSET, setting, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+			exists = purple_prefs_exists(path);
+			if (exists) {
+				value = purple_prefs_get_bool(path);
+				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+				free(path);
+				return value;
+			} else {
+				free(path);
+			}
+		} else {
+			free(path);
+		}
+	}
+
+	return FALSE;	
+}
+
+static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags, const char *sender) {
 	PurpleStatus * purpleStatus = NULL;
 	PurpleStatusType * statusType = NULL;
 	PurpleStatusPrimitive primStatus = 0;
+	const char * protocol_id = NULL;
+	const char * account_name = NULL;
 
 	if (!(flags & PURPLE_MESSAGE_RECV)) {
 		return FALSE;
@@ -415,54 +506,33 @@ static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, Pu
 		return FALSE;
 	}
 
+	protocol_id = purple_account_get_protocol_id(account);
+	account_name = purple_account_get_username(account);
+
 	purpleStatus = purple_account_get_active_status(account);
 	statusType = purple_status_get_type(purpleStatus);
 	primStatus = purple_status_type_get_primitive(statusType);
-	switch (primStatus) {
-		case PURPLE_STATUS_AVAILABLE:
-			if (purple_prefs_get_bool(paths_available.enabled)) {
-				paths = &paths_available;
-			}
-			break;
-		case PURPLE_STATUS_AWAY:
-			if (purple_prefs_get_bool(paths_away.enabled)) {
-				paths = &paths_away;
-			}
-			break;
-		case PURPLE_STATUS_EXTENDED_AWAY:
-			if (purple_prefs_get_bool(paths_extended_away.enabled)) {
-				paths = &paths_extended_away;
-			}
-			break;
-		case PURPLE_STATUS_UNAVAILABLE:
-			if (purple_prefs_get_bool(paths_unavailable.enabled)) {
-				paths = &paths_unavailable;
-			}
-			break;
-		case PURPLE_STATUS_INVISIBLE:
-			if (purple_prefs_get_bool(paths_invisible.enabled)) {
-				paths = &paths_invisible;
-			}
-			break;
-		default:
-			break;
-	}
 
 	if (convType == PURPLE_CONV_TYPE_IM) {
-		if (!purple_prefs_get_bool(paths->for_im)) {
+		purple_debug_misc("win_toast_notifications", "Checking im settings\n");
+		if (!get_effective_setting(primStatus, SETTING_FOR_IM, BUDDY_TYPE_BUDDY, protocol_id, account_name, sender)) {
 			return FALSE;
 		}
-	}
-	if (convType == PURPLE_CONV_TYPE_CHAT) {
-		if (!purple_prefs_get_bool(paths->for_chat)) {
-			if (!(flags & PURPLE_MESSAGE_NICK && purple_prefs_get_bool(paths->for_chat_mentioned))) {
+		if (conv != NULL && purple_conversation_has_focus(conv) && !get_effective_setting(primStatus, SETTING_FOR_FOCUS, BUDDY_TYPE_BUDDY, protocol_id, account_name, sender))
+		{
+			return FALSE;
+		}
+	} else if (convType == PURPLE_CONV_TYPE_CHAT) {
+		purple_debug_misc("win_toast_notifications", "Checking chat settings\n");
+		if (!get_effective_setting(primStatus, SETTING_FOR_CHAT, BUDDY_TYPE_CHAT, protocol_id, account_name, sender)) {
+			if (!(flags & PURPLE_MESSAGE_NICK && get_effective_setting(primStatus, SETTING_FOR_CHAT_MENTIONED, BUDDY_TYPE_CHAT, protocol_id, account_name, sender))) {
 				return FALSE;
 			}
 		}
-	}
-	if (conv != NULL && purple_conversation_has_focus(conv) && !purple_prefs_get_bool(paths->for_focus))
-	{
-		return FALSE;
+		if (conv != NULL && purple_conversation_has_focus(conv) && !get_effective_setting(primStatus, SETTING_FOR_FOCUS, BUDDY_TYPE_CHAT, protocol_id, account_name, sender))
+		{
+			return FALSE;
+		}
 	}
 
 	return TRUE;
@@ -483,7 +553,7 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 	const char *iconPath = NULL;
 	PurpleConversationType convType = purple_conversation_get_type(conv);
 
-	if (should_show(account, conv, convType, flags))
+	if (should_show(account, conv, convType, flags, sender))
 	{
 		buddy = purple_find_buddy(account, sender);
 		if (buddy != NULL)
@@ -537,12 +607,8 @@ displayed_msg_cb(PurpleAccount *account, char *sender, char *buffer,
 
 static void button_clicked_cb(GtkButton *button, char *path)
 {
-    gboolean enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
-    if (enabled) {
-		purple_debug_misc("win_toast_notifications", "%s enabled\n", path);
-    } else {
-		purple_debug_misc("win_toast_notifications", "%s disabled\n", path);
-    }
+    gboolean value = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button));
+	purple_prefs_set_bool(path, value);
 }
 
 static void settings_dialog_destroy_cb(GtkWidget *w, struct localSettingsData *data)
@@ -578,14 +644,23 @@ static void add_setting_button(
 	GtkWidget * button;
 	char *path;
 	struct charListNode *node;
+	gboolean exists;
+	gboolean value;
 
 	button = gtk_check_button_new_with_label(labelText);
 	gtk_container_add(GTK_CONTAINER(vbox), button);
-	path = get_settings_path(status, setting, buddy_type, protocol_id, account_name, buddy_name);
+	path = get_prefs_path(status, setting, buddy_type, protocol_id, account_name, buddy_name);
 	node = malloc(sizeof(struct charListNode));
 	node->next = data->paths;
 	data->paths = node;
 	node->str = path;
+	ensure_prefs_path(path);
+	exists = purple_prefs_exists(path);
+	if (!exists) {
+		purple_prefs_add_bool(path, FALSE);
+	}
+	value = purple_prefs_get_bool(path);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), value);
 	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(button_clicked_cb), path);
 }
 
@@ -758,12 +833,12 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 	char *buddy_name;
 	char *protocol_id;
 
-	// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+	// path = get_prefs_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
 	// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
 	if (PURPLE_BLIST_NODE_IS_BUDDY(node)) {
 		buddyNode = (PurpleBuddy*) node;
 		purple_debug_misc("win_toast_notifications", "Open local settings dialog for buddy: %s, protocol: %s, username: %s\n", buddyNode->name, buddyNode->account->protocol_id, buddyNode->account->username);
-		// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_BUDDY, buddyNode->account->protocol_id, buddyNode->account->username, buddyNode->name);
+		// path = get_prefs_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_BUDDY, buddyNode->account->protocol_id, buddyNode->account->username, buddyNode->name);
 		// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
 		buddy_type = BUDDY_TYPE_BUDDY;
 		account_name = buddyNode->account->username;
@@ -781,7 +856,7 @@ static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 			g_list_foreach(parts, (GFunc)g_free, NULL);
 			g_list_free(parts);
 			purple_debug_misc("win_toast_notifications", "Open local settings dialog for chat: %s, protocol: %s, username: %s\n", chatName, chatNode->account->protocol_id, chatNode->account->username);
-			// path = get_settings_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_CHAT, chatNode->account->protocol_id, chatNode->account->username, chatName);
+			// path = get_prefs_path(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, BUDDY_TYPE_CHAT, chatNode->account->protocol_id, chatNode->account->username, chatName);
 			// purple_debug_misc("win_toast_notifications", "path: %s\n", path);
 			buddy_type = BUDDY_TYPE_CHAT;
 			account_name = chatNode->account->username;
@@ -921,150 +996,62 @@ plugin_unload(PurplePlugin *plugin)
 	return TRUE;
 }
 
-static void
-add_status_specific_pref(PurplePluginPrefFrame * frame, PurpleStatusPrimitive status)
-{
-	PurplePluginPref *ppref;
-	const char * title_lable = NULL;
-	const struct status_options_paths * paths = NULL;
+static void ensure_pref_default(PurpleStatusPrimitive status, Setting setting, gboolean value) {
+	char *path;
+	gboolean exists;
 
-	switch (status) {
-		case PURPLE_STATUS_AVAILABLE:
-			paths = &paths_available;
-			title_lable = "If in status 'Available' instead notify for";
-			break;
-		case PURPLE_STATUS_AWAY:
-			title_lable = "If in status 'Away' instead notify for";
-			paths = &paths_away;
-			break;
-		case PURPLE_STATUS_UNAVAILABLE:
-			title_lable = "If in status 'Do not disturb' instead notify for";
-			paths = &paths_unavailable;
-			break;
-		case PURPLE_STATUS_EXTENDED_AWAY:
-			title_lable = "If in status 'Extended away' away instead notify for";
-			paths = &paths_extended_away;
-			break;
-		case PURPLE_STATUS_INVISIBLE:
-			title_lable = "If in status 'Invisible' instead notify for";
-			paths = &paths_invisible;
-			break;
-		default:
-			return;
+	path = get_prefs_path(status, setting, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
+	ensure_prefs_path(path);	
+	exists = purple_prefs_exists(path);
+	if (!exists) {
+		purple_prefs_add_bool(path, value);
 	}
 
-	ppref = purple_plugin_pref_new_with_label(title_lable);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths->enabled,
-		labels.enabled);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths->for_im,
-		labels.for_im);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths->for_chat,
-		labels.for_chat);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths->for_chat_mentioned,
-		labels.for_chat_mentioned);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths->for_focus,
-		labels.for_focus);
-	purple_plugin_pref_frame_add(frame, ppref);
+	// todo: copy settings of previous version
 }
 
-static PurplePluginPrefFrame *
-get_plugin_pref_frame(PurplePlugin *plugin)
-{
-	PurplePluginPrefFrame *frame;
-	PurplePluginPref *ppref;
-
-	frame = purple_plugin_pref_frame_new();
-
-	ppref = purple_plugin_pref_new_with_label("In every status notify for");
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths_default.for_im,
-		labels.for_im);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths_default.for_chat,
-		labels.for_chat);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths_default.for_chat_mentioned,
-		labels.for_chat_mentioned);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	ppref = purple_plugin_pref_new_with_name_and_label(
-		paths_default.for_focus,
-		labels.for_focus);
-	purple_plugin_pref_frame_add(frame, ppref);
-
-	add_status_specific_pref(frame, PURPLE_STATUS_AVAILABLE);
-	add_status_specific_pref(frame, PURPLE_STATUS_AWAY);
-	add_status_specific_pref(frame, PURPLE_STATUS_UNAVAILABLE);
-	add_status_specific_pref(frame, PURPLE_STATUS_INVISIBLE);
-	add_status_specific_pref(frame, PURPLE_STATUS_EXTENDED_AWAY);
-
-	return frame;
+static void set_default_prefs() {
+	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_ENABLED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_IM, TRUE);
+	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_CHAT, TRUE);
+	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_CHAT_MENTIONED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_FOCUS, FALSE);
+	
+	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_ENABLED, FALSE);
+	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_IM, TRUE);
+	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_CHAT, TRUE);
+	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_CHAT_MENTIONED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_FOCUS, FALSE);
+	
+	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_ENABLED, FALSE);
+	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_IM, TRUE);
+	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_CHAT, FALSE);
+	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_CHAT_MENTIONED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_FOCUS, FALSE);
+	
+	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_ENABLED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_IM, FALSE);
+	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_CHAT, FALSE);
+	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_CHAT_MENTIONED, FALSE);
+	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_FOCUS, FALSE);
+	
+	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_ENABLED, FALSE);
+	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_IM, TRUE);
+	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_CHAT, FALSE);
+	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_CHAT_MENTIONED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_FOCUS, FALSE);
+	
+	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_ENABLED, FALSE);
+	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_IM, TRUE);
+	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_CHAT, FALSE);
+	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_CHAT_MENTIONED, TRUE);
+	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_FOCUS, FALSE);
 }
 
 static void
 init_plugin(PurplePlugin *plugin)
 {
-	purple_prefs_add_none(paths_default.parent);
-	purple_prefs_add_bool(paths_default.for_im, TRUE);
-	purple_prefs_add_bool(paths_default.for_chat, TRUE);
-	purple_prefs_add_bool(paths_default.for_chat_mentioned, TRUE);
-	purple_prefs_add_bool(paths_default.for_focus, FALSE);
-	
-	purple_prefs_add_none(paths_available.parent);
-	purple_prefs_add_bool(paths_available.enabled, FALSE);
-	purple_prefs_add_bool(paths_available.for_im, TRUE);
-	purple_prefs_add_bool(paths_available.for_chat, TRUE);
-	purple_prefs_add_bool(paths_available.for_chat_mentioned, TRUE);
-	purple_prefs_add_bool(paths_available.for_focus, FALSE);
-	
-	purple_prefs_add_none(paths_away.parent);
-	purple_prefs_add_bool(paths_away.enabled, FALSE);
-	purple_prefs_add_bool(paths_away.for_im, TRUE);
-	purple_prefs_add_bool(paths_away.for_chat, FALSE);
-	purple_prefs_add_bool(paths_away.for_chat_mentioned, TRUE);
-	purple_prefs_add_bool(paths_away.for_focus, FALSE);
-	
-	purple_prefs_add_none(paths_unavailable.parent);
-	purple_prefs_add_bool(paths_unavailable.enabled, TRUE);
-	purple_prefs_add_bool(paths_unavailable.for_im, FALSE);
-	purple_prefs_add_bool(paths_unavailable.for_chat, FALSE);
-	purple_prefs_add_bool(paths_unavailable.for_chat_mentioned, FALSE);
-	purple_prefs_add_bool(paths_unavailable.for_focus, FALSE);
-	
-	purple_prefs_add_none(paths_invisible.parent);
-	purple_prefs_add_bool(paths_invisible.enabled, FALSE);
-	purple_prefs_add_bool(paths_invisible.for_im, TRUE);
-	purple_prefs_add_bool(paths_invisible.for_chat, FALSE);
-	purple_prefs_add_bool(paths_invisible.for_chat_mentioned, TRUE);
-	purple_prefs_add_bool(paths_invisible.for_focus, FALSE);
-	
-	purple_prefs_add_none(paths_extended_away.parent);
-	purple_prefs_add_bool(paths_extended_away.enabled, FALSE);
-	purple_prefs_add_bool(paths_extended_away.for_im, TRUE);
-	purple_prefs_add_bool(paths_extended_away.for_chat, FALSE);
-	purple_prefs_add_bool(paths_extended_away.for_chat_mentioned, TRUE);
-	purple_prefs_add_bool(paths_extended_away.for_focus, FALSE);
+	set_default_prefs();
 }
 
 PURPLE_INIT_PLUGIN(win_toast_notifications, init_plugin, info);
