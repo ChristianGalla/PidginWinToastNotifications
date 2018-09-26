@@ -65,6 +65,7 @@ static void context_menu(PurpleBlistNode *node, GList **menu, gpointer plugin);
 static gboolean plugin_load(PurplePlugin *plugin);
 static gboolean plugin_unload(PurplePlugin *plugin);
 static void init_plugin(PurplePlugin *plugin);
+static char* get_old_prefs_path(PurpleStatusPrimitive status, Setting setting);
 static char* get_prefs_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name);
 static const char* get_prefs_sub_path(Setting setting);
 static const char* get_buddy_type_sub_path(Buddy_type buddy_type);
@@ -99,7 +100,7 @@ static void add_setting_groups(
 );
 static void ensure_prefs_path(const char *path);
 static void ensure_pref_default(PurpleStatusPrimitive status, Setting setting, gboolean value);
-static void set_default_prefs();
+static void set_default_prefs(void);
 static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name);
 GtkWidget * get_config_frame(PurplePlugin *plugin);
 
@@ -150,6 +151,44 @@ static const char* get_buddy_type_sub_path(Buddy_type buddy_type) {
 		default:
 			return "/unknown";
 	}
+}
+
+static char* get_old_prefs_path(PurpleStatusPrimitive status, Setting setting) {
+	char *ret = 0;
+	const char *statusStr = 0;
+	const char *settingStr = 0;
+
+	int size = 0;
+	int basePathSize = 0;
+	int statusSize = 0;
+	int settingSize = 0;
+
+	int targetPos = 0;
+
+
+	if (status != PURPLE_STATUS_UNSET) {
+		statusStr = purple_primitive_get_id_from_type(status);
+		statusSize = strlen(statusStr) + 1; // +1 for '/'
+	}
+	settingStr = get_prefs_sub_path(setting);
+
+	basePathSize = strlen(base_settings_path);
+	settingSize = strlen(settingStr);
+
+	size = basePathSize + statusSize + settingSize + 1;
+	ret = (char *)malloc(size);
+	memcpy(ret + targetPos, base_settings_path, basePathSize);
+	targetPos += basePathSize;
+	if (status != PURPLE_STATUS_UNSET) {
+		ret[targetPos] = '/';
+		targetPos++;
+		memcpy(ret + targetPos, statusStr, statusSize-1);
+		targetPos += statusSize-1;
+	}
+	memcpy(ret + targetPos, settingStr, settingSize);
+	targetPos += settingSize;
+	ret[targetPos] = '\0';
+	return ret;
 }
 
 static char* get_prefs_path(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *protocol_id, const char *account_name, const char *buddy_name) {
@@ -415,13 +454,10 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
 				free(path);
 				return value;
-			} else {
-				free(path);
 			}
-		} else {
-			free(path);
 		}
 	}
+	free(path);
 
 	// check buddy setting for unset status
 	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, buddy_type, protocol_id, account_name, buddy_name);
@@ -437,13 +473,10 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
 				free(path);
 				return value;
-			} else {
-				free(path);
 			}
-		} else {
-			free(path);
 		}
 	}
+	free(path);
 
 	// check global setting for status
 	path = get_prefs_path(status, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
@@ -459,13 +492,10 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
 				free(path);
 				return value;
-			} else {
-				free(path);
 			}
-		} else {
-			free(path);
 		}
 	}
+	free(path);
 
 	// check global setting for unset status
 	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
@@ -481,13 +511,10 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
 				free(path);
 				return value;
-			} else {
-				free(path);
 			}
-		} else {
-			free(path);
 		}
 	}
+	free(path);
 
 	return FALSE;	
 }
@@ -931,6 +958,9 @@ static gboolean
 plugin_load(PurplePlugin *plugin)
 {
 	purple_debug_misc("win_toast_notifications", "loading...\n");
+
+	set_default_prefs();
+
 	hinstLib = LoadLibrary(TEXT("PidginWinToastLib.dll"));
 
 	if (hinstLib != NULL)
@@ -998,6 +1028,7 @@ plugin_unload(PurplePlugin *plugin)
 
 static void ensure_pref_default(PurpleStatusPrimitive status, Setting setting, gboolean value) {
 	char *path;
+	char *oldPath;
 	gboolean exists;
 
 	path = get_prefs_path(status, setting, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL);
@@ -1007,10 +1038,22 @@ static void ensure_pref_default(PurpleStatusPrimitive status, Setting setting, g
 		purple_prefs_add_bool(path, value);
 	}
 
-	// todo: copy settings of previous version
+	oldPath = get_old_prefs_path(status, setting);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		value = purple_prefs_get_bool(oldPath);
+		purple_prefs_set_bool(path, value);
+		purple_prefs_remove(oldPath);
+	}
+
+	free(path);
+	free(oldPath);
 }
 
 static void set_default_prefs() {
+	char *oldPath;
+	gboolean exists;
+
 	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_ENABLED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_IM, TRUE);
 	ensure_pref_default(PURPLE_STATUS_UNSET, SETTING_FOR_CHAT, TRUE);
@@ -1022,36 +1065,65 @@ static void set_default_prefs() {
 	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_CHAT, TRUE);
 	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_CHAT_MENTIONED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_AVAILABLE, SETTING_FOR_FOCUS, FALSE);
+	oldPath = get_old_prefs_path(PURPLE_STATUS_AVAILABLE, SETTING_NONE);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		purple_prefs_remove(oldPath);
+	}
+	free(oldPath);
 	
 	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_ENABLED, FALSE);
 	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_IM, TRUE);
 	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_CHAT, FALSE);
 	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_CHAT_MENTIONED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_AWAY, SETTING_FOR_FOCUS, FALSE);
+	oldPath = get_old_prefs_path(PURPLE_STATUS_AWAY, SETTING_NONE);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		purple_prefs_remove(oldPath);
+	}
+	free(oldPath);
 	
 	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_ENABLED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_IM, FALSE);
 	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_CHAT, FALSE);
 	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_CHAT_MENTIONED, FALSE);
 	ensure_pref_default(PURPLE_STATUS_UNAVAILABLE, SETTING_FOR_FOCUS, FALSE);
+	oldPath = get_old_prefs_path(PURPLE_STATUS_UNAVAILABLE, SETTING_NONE);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		purple_prefs_remove(oldPath);
+	}
+	free(oldPath);
 	
 	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_ENABLED, FALSE);
 	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_IM, TRUE);
 	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_CHAT, FALSE);
 	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_CHAT_MENTIONED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_INVISIBLE, SETTING_FOR_FOCUS, FALSE);
+	oldPath = get_old_prefs_path(PURPLE_STATUS_INVISIBLE, SETTING_NONE);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		purple_prefs_remove(oldPath);
+	}
+	free(oldPath);
 	
 	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_ENABLED, FALSE);
 	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_IM, TRUE);
 	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_CHAT, FALSE);
 	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_CHAT_MENTIONED, TRUE);
 	ensure_pref_default(PURPLE_STATUS_EXTENDED_AWAY, SETTING_FOR_FOCUS, FALSE);
+	oldPath = get_old_prefs_path(PURPLE_STATUS_EXTENDED_AWAY, SETTING_NONE);
+	exists = purple_prefs_exists(oldPath);
+	if (exists) {
+		purple_prefs_remove(oldPath);
+	}
+	free(oldPath);
 }
 
 static void
 init_plugin(PurplePlugin *plugin)
 {
-	set_default_prefs();
 }
 
 PURPLE_INIT_PLUGIN(win_toast_notifications, init_plugin, info);
