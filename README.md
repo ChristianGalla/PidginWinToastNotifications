@@ -20,11 +20,29 @@ This plugin uses Pidgin's standard C API so no other tools like Perl are require
 
 ## Features
 
-![Configuration](./img/configuration.png "Configuration")
-
 It can be configured if notifications should be shown for direct messages, every message in chats, only for messages in chats when mentioned or only if the conversation window is not focused.
 
 This configuration can be overwritten per status (Available, Away, Do not disturb, Extended away or Invisible).
+
+Global configuration:
+
+![Configuration](./img/configuration.png "Configuration")
+
+Also, it is possible to overwrite the global settings for each conversation.
+
+Configuration for a chat:
+
+![Configuration](./img/configuration_chat.png "Configuration for chat")
+
+Configuration for a buddy:
+
+![Configuration](./img/configuration_buddy.png "Configuration for buddy")
+
+The global configuration can be accessed via the default plugin configuration page (In Buddy List: Tools / Plugins / Windows Toast Notifications).
+
+The local settings can be opened from the conversation menu underneath *More* or from the context menu of a buddy or chat in the Buddy List:
+
+![Configuration](./img/configuration_menu.png "Open settings for a conversation")
 
 ## Supported operating systems
 
