@@ -1,5 +1,8 @@
 # Changelog
 
+## <a name="1.5.0"></a>[1.5.0](#1.5.0) (2018-09-26)
+- Added local settings.
+
 ## <a name="1.4.0"></a>[1.4.0](#1.4.0) (2018-06-08)
 - Added options to enable or disable notifications based on the type of the received messages and current status. ([#3](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/3), [#5](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/5))
 - Changed app id to "Pidgin.Pidgin" to increase interoperability with other plugins. ([#4](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/4))
