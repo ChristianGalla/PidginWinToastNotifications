@@ -80,7 +80,7 @@ PidginWinToastLib.dll is written in C++ and calls Windows's toast notification A
 This file is build using the GNU Compiler Collection (GCC).
 
 1. Follow the [official instructions of the Pidgin wiki to set up your build environment](https://developer.pidgin.im/wiki/BuildingWinPidgin#Setupyourbuildenvironment). For this I recommend [pidgin-windev](https://github.com/renatosilva/pidgin-windev).
-2. Copy the file Plugin/PidginWinToastNotifications.c into the subfolder pidgin\plugins inside of your Pidgin development directory.
+2. Copy the files Plugin/PidginWinToastNotifications.h and Plugin/PidginWinToastNotifications.c into the subfolder pidgin\plugins inside of your Pidgin development directory.
 3. Inside a Cygwin Terminal navigate to pidgin\plugins inside of your Pidgin development directory.
 4. Run the Command: *make -f Makefile.mingw PidginWinToastNotifications.dll*
 
