@@ -361,81 +361,85 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 
 	purple_debug_misc("win_toast_notifications", "Checking effective settings\n");
 
-	// check buddy setting for status
-	path = get_prefs_path(status, SETTING_ENABLED, buddy_type, NULL, protocol_id, account_name, buddy_name);
-	exists = purple_prefs_exists(path);
-	if (exists) {
-		if (purple_prefs_get_bool(path)) {
-			purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for status: %s\n", path);
-			free(path);
-			path = get_prefs_path(status, setting, buddy_type, NULL, protocol_id, account_name, buddy_name);
-			exists = purple_prefs_exists(path);
-			if (exists) {
-				value = purple_prefs_get_bool(path);
-				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+	if (protocol_id != NULL && account_name != NULL && buddy_name != NULL) {
+		// check buddy setting for status
+		path = get_prefs_path(status, SETTING_ENABLED, buddy_type, NULL, protocol_id, account_name, buddy_name);
+		exists = purple_prefs_exists(path);
+		if (exists) {
+			if (purple_prefs_get_bool(path)) {
+				purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for status: %s\n", path);
 				free(path);
-				return value;
+				path = get_prefs_path(status, setting, buddy_type, NULL, protocol_id, account_name, buddy_name);
+				exists = purple_prefs_exists(path);
+				if (exists) {
+					value = purple_prefs_get_bool(path);
+					purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+					free(path);
+					return value;
+				}
 			}
 		}
-	}
-	free(path);
+		free(path);
 
-	// check buddy setting for unset status
-	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, buddy_type, NULL, protocol_id, account_name, buddy_name);
-	exists = purple_prefs_exists(path);
-	if (exists) {
-		if (purple_prefs_get_bool(path)) {
-			purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for unset status: %s\n", path);
-			free(path);
-			path = get_prefs_path(PURPLE_STATUS_UNSET, setting, buddy_type, NULL, protocol_id, account_name, buddy_name);
-			exists = purple_prefs_exists(path);
-			if (exists) {
-				value = purple_prefs_get_bool(path);
-				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+		// check buddy setting for unset status
+		path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, buddy_type, NULL, protocol_id, account_name, buddy_name);
+		exists = purple_prefs_exists(path);
+		if (exists) {
+			if (purple_prefs_get_bool(path)) {
+				purple_debug_misc("win_toast_notifications", "Found enabled buddy setting for unset status: %s\n", path);
 				free(path);
-				return value;
+				path = get_prefs_path(PURPLE_STATUS_UNSET, setting, buddy_type, NULL, protocol_id, account_name, buddy_name);
+				exists = purple_prefs_exists(path);
+				if (exists) {
+					value = purple_prefs_get_bool(path);
+					purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+					free(path);
+					return value;
+				}
 			}
 		}
+		free(path);
 	}
-	free(path);
 
-	// check group setting for status
-	path = get_prefs_path(status, SETTING_ENABLED, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
-	exists = purple_prefs_exists(path);
-	if (exists) {
-		if (purple_prefs_get_bool(path)) {
-			purple_debug_misc("win_toast_notifications", "Found enabled group setting for status: %s\n", path);
-			free(path);
-			path = get_prefs_path(status, setting, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
-			exists = purple_prefs_exists(path);
-			if (exists) {
-				value = purple_prefs_get_bool(path);
-				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+	if (group_name != NULL) {
+		// check group setting for status
+		path = get_prefs_path(status, SETTING_ENABLED, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
+		exists = purple_prefs_exists(path);
+		if (exists) {
+			if (purple_prefs_get_bool(path)) {
+				purple_debug_misc("win_toast_notifications", "Found enabled group setting for status: %s\n", path);
 				free(path);
-				return value;
+				path = get_prefs_path(status, setting, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
+				exists = purple_prefs_exists(path);
+				if (exists) {
+					value = purple_prefs_get_bool(path);
+					purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+					free(path);
+					return value;
+				}
 			}
 		}
-	}
-	free(path);
+		free(path);
 
-	// check group setting for unset status
-	path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
-	exists = purple_prefs_exists(path);
-	if (exists) {
-		if (purple_prefs_get_bool(path)) {
-			purple_debug_misc("win_toast_notifications", "Found enabled group for unset status: %s\n", path);
-			free(path);
-			path = get_prefs_path(PURPLE_STATUS_UNSET, setting, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
-			exists = purple_prefs_exists(path);
-			if (exists) {
-				value = purple_prefs_get_bool(path);
-				purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+		// check group setting for unset status
+		path = get_prefs_path(PURPLE_STATUS_UNSET, SETTING_ENABLED, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
+		exists = purple_prefs_exists(path);
+		if (exists) {
+			if (purple_prefs_get_bool(path)) {
+				purple_debug_misc("win_toast_notifications", "Found enabled group for unset status: %s\n", path);
 				free(path);
-				return value;
+				path = get_prefs_path(PURPLE_STATUS_UNSET, setting, BUDDY_TYPE_GROUP, group_name, NULL, NULL, NULL);
+				exists = purple_prefs_exists(path);
+				if (exists) {
+					value = purple_prefs_get_bool(path);
+					purple_debug_misc("win_toast_notifications", "Found setting for status %i: %i, path: %s\n", setting, value, path);
+					free(path);
+					return value;
+				}
 			}
 		}
+		free(path);
 	}
-	free(path);
 
 	// check global setting for status
 	path = get_prefs_path(status, SETTING_ENABLED, BUDDY_TYPE_GLOBAL, NULL, NULL, NULL, NULL);
