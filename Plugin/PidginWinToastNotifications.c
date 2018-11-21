@@ -31,6 +31,10 @@ static const char* get_prefs_sub_path(Setting setting) {
 			return "/for_chat_mentioned";
 		case SETTING_FOR_FOCUS:
 			return "/for_focus";
+		case SETTING_BUDDY_SIGNED_ON:
+			return "/BUDDY_ONLINE";
+		case SETTING_BUDDY_SIGNED_OFF:
+			return "/BUDDY_OFFLINE";
 		default:
 			return "";
 	}
@@ -341,11 +345,13 @@ static void toast_clicked_cb(PurpleConversation *conv)
 {
 	PidginConversation *gtkconv;
 	purple_debug_misc("win_toast_notifications", "toast clicked\n");
-	pidgin_conv_attach_to_conversation(conv);
-	gtkconv = PIDGIN_CONVERSATION(conv);
-	pidgin_conv_switch_active_conversation(conv);
-	pidgin_conv_window_switch_gtkconv(gtkconv->win, gtkconv);
-	gtk_window_present(GTK_WINDOW(gtkconv->win->window));
+	if (conv != NULL) {
+		pidgin_conv_attach_to_conversation(conv);
+		gtkconv = PIDGIN_CONVERSATION(conv);
+		pidgin_conv_switch_active_conversation(conv);
+		pidgin_conv_window_switch_gtkconv(gtkconv->win, gtkconv);
+		gtk_window_present(GTK_WINDOW(gtkconv->win->window));
+	}
 }
 
 static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting setting, Buddy_type buddy_type, const char *group_name, const char *protocol_id, const char *account_name, const char *buddy_name) {
@@ -472,7 +478,7 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 	return FALSE;	
 }
 
-static gboolean should_show(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags, const char *sender) {
+static gboolean should_show_message(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags, const char *sender) {
 	PurpleStatus * purpleStatus = NULL;
 	PurpleStatusType * statusType = NULL;
 	PurpleStatusPrimitive primStatus = 0;
@@ -546,7 +552,7 @@ static void displayed_msg_cb(
 	const char *iconPath = NULL;
 	PurpleConversationType convType = purple_conversation_get_type(conv);
 
-	if (should_show(account, conv, convType, flags, sender))
+	if (should_show_message(account, conv, convType, flags, sender))
 	{
 		buddy = purple_find_buddy(account, sender);
 		if (buddy != NULL)
@@ -586,6 +592,129 @@ static void displayed_msg_cb(
 							protocolName, userName, sender, buffer,
 							chatName, flags);
 		callResult = (showToastProcAdd)(senderName, buffer, iconPath, attrText, conv);
+		if (callResult)
+		{
+			output_toast_error(callResult, "Failed to show Toast Notification");
+		}
+		else
+		{
+			purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
+		}
+		free(attrText);
+	}
+}
+
+static void buddy_signed_on_cb(
+	PurpleBuddy *buddy
+) {
+	PurpleStatus * purpleStatus = NULL;
+	PurpleStatusType * statusType = NULL;
+	PurpleStatusPrimitive primStatus = 0;
+	const char * protocol_id = NULL;
+	const char * account_name = NULL;
+	PurpleGroup * group = NULL;
+	const char * group_name = NULL;
+	const char *protocolName = NULL;
+	const char *userName = NULL;
+	char *attrText = NULL;
+	int callResult;
+	const char *senderName = NULL;
+	PurpleBuddyIcon *icon = NULL;
+	const char *iconPath = NULL;
+	PurpleAccount * account = NULL;
+
+	protocol_id = purple_account_get_protocol_id(account);
+	account_name = purple_account_get_username(account);
+	purpleStatus = purple_account_get_active_status(account);
+	statusType = purple_status_get_type(purpleStatus);
+	primStatus = purple_status_type_get_primitive(statusType);
+	group = purple_buddy_get_group(buddy);
+	group_name = purple_group_get_name(group);
+
+	if (get_effective_setting(primStatus, SETTING_BUDDY_SIGNED_ON, BUDDY_TYPE_BUDDY, group_name, protocol_id, account_name, buddy->name))
+	{
+		purple_debug_misc("win_toast_notifications", "Buddy signed on\n");
+		senderName = purple_buddy_get_alias(buddy);
+		if (senderName == NULL)
+		{
+			senderName = purple_buddy_get_name(buddy);
+		}
+		icon = purple_buddy_get_icon(buddy);
+		if (icon != NULL)
+		{
+			iconPath = purple_buddy_icon_get_full_path(icon);
+		}
+
+		account = purple_buddy_get_account(buddy);
+		userName = purple_account_get_username(account);
+		protocolName = purple_account_get_protocol_name(account);
+		attrText = get_attr_text(protocolName, userName, NULL);
+
+		purple_debug_misc("win_toast_notifications", "buddy_signed_on_cb (%s, %s)\n",
+							protocolName, userName);
+		// todo: handover a reference to the buddy to be able to create a conversation on click on the notification
+		callResult = (showToastProcAdd)(senderName, "Signed on", iconPath, attrText, NULL);
+		if (callResult)
+		{
+			output_toast_error(callResult, "Failed to show Toast Notification");
+		}
+		else
+		{
+			purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
+		}
+		free(attrText);
+	}
+}
+
+static void buddy_signed_off_cb(
+	PurpleBuddy *buddy
+) {
+	PurpleStatus * purpleStatus = NULL;
+	PurpleStatusType * statusType = NULL;
+	PurpleStatusPrimitive primStatus = 0;
+	const char * protocol_id = NULL;
+	const char * account_name = NULL;
+	PurpleGroup * group = NULL;
+	const char * group_name = NULL;
+	const char *protocolName = NULL;
+	const char *userName = NULL;
+	char *attrText = NULL;
+	int callResult;
+	const char *senderName = NULL;
+	PurpleBuddyIcon *icon = NULL;
+	const char *iconPath = NULL;
+	PurpleAccount * account = NULL;
+
+	protocol_id = purple_account_get_protocol_id(account);
+	account_name = purple_account_get_username(account);
+	purpleStatus = purple_account_get_active_status(account);
+	statusType = purple_status_get_type(purpleStatus);
+	primStatus = purple_status_type_get_primitive(statusType);
+	group = purple_buddy_get_group(buddy);
+	group_name = purple_group_get_name(group);
+
+	if (get_effective_setting(primStatus, SETTING_BUDDY_SIGNED_OFF, BUDDY_TYPE_BUDDY, group_name, protocol_id, account_name, buddy->name))
+	{
+		purple_debug_misc("win_toast_notifications", "Buddy signed off\n");
+		senderName = purple_buddy_get_alias(buddy);
+		if (senderName == NULL)
+		{
+			senderName = purple_buddy_get_name(buddy);
+		}
+		icon = purple_buddy_get_icon(buddy);
+		if (icon != NULL)
+		{
+			iconPath = purple_buddy_icon_get_full_path(icon);
+		}
+
+		account = purple_buddy_get_account(buddy);
+		userName = purple_account_get_username(account);
+		protocolName = purple_account_get_protocol_name(account);
+		attrText = get_attr_text(protocolName, userName, NULL);
+
+		purple_debug_misc("win_toast_notifications", "buddy_signed_off_cb (%s, %s)\n",
+							protocolName, userName);
+		callResult = (showToastProcAdd)(senderName, "Signed off", iconPath, attrText, NULL);
 		if (callResult)
 		{
 			output_toast_error(callResult, "Failed to show Toast Notification");
@@ -693,6 +822,30 @@ static void add_setting_buttons(
 		"Enabled"
 	);
 	if (buddy_type != BUDDY_TYPE_CHAT) {
+		add_setting_button(
+			status,
+			buddy_type,
+			group_name,
+			protocol_id,
+			account_name,
+			buddy_name,
+			vbox,
+			data,
+			SETTING_BUDDY_SIGNED_ON,
+			"Buddy signed on"
+		);
+		add_setting_button(
+			status,
+			buddy_type,
+			group_name,
+			protocol_id,
+			account_name,
+			buddy_name,
+			vbox,
+			data,
+			SETTING_BUDDY_SIGNED_OFF,
+			"Buddy signed off"
+		);
 		add_setting_button(
 			status,
 			buddy_type,
@@ -1006,6 +1159,13 @@ plugin_load(PurplePlugin *plugin)
 									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
 				purple_signal_connect(conv_handle, "displayed-chat-msg",
 									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
+				purple_signal_connect(conv_handle, "buddy-signed-on",
+									  plugin, PURPLE_CALLBACK(buddy_signed_on_cb), NULL);
+				purple_signal_connect(conv_handle, "buddy-signed-off",
+									  plugin, PURPLE_CALLBACK(buddy_signed_off_cb), NULL);
+				purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu", plugin,
+									PURPLE_CALLBACK(context_menu), plugin);
+				return TRUE;
 			}
 		}
 	}
@@ -1014,10 +1174,8 @@ plugin_load(PurplePlugin *plugin)
 		purple_debug_misc("win_toast_notifications",
 						  "failed to load dll\n");
 	}
-	purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu", plugin,
-						PURPLE_CALLBACK(context_menu), plugin);
 
-	return TRUE;
+	return FALSE;
 }
 
 static gboolean

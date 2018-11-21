@@ -63,7 +63,9 @@ typedef enum {
 	SETTING_FOR_IM,
 	SETTING_FOR_CHAT,
 	SETTING_FOR_CHAT_MENTIONED,
-	SETTING_FOR_FOCUS
+	SETTING_FOR_FOCUS,
+	SETTING_BUDDY_SIGNED_ON,
+	SETTING_BUDDY_SIGNED_OFF
 } Setting;
 
 typedef enum {
@@ -88,7 +90,7 @@ static void toast_clicked_cb(
 	PurpleConversation *conv
 );
 
-static gboolean should_show(
+static gboolean should_show_message(
 	PurpleAccount *account,
 	PurpleConversation *conv,
 	PurpleConversationType convType,
@@ -102,6 +104,14 @@ static void displayed_msg_cb(
 	const char *buffer,
 	PurpleConversation *conv,
 	PurpleMessageFlags flags
+);
+
+static void buddy_signed_on_cb(
+	PurpleBuddy *buddy
+);
+
+static void buddy_signed_off_cb(
+	PurpleBuddy *buddy
 );
 
 static void button_clicked_cb(
