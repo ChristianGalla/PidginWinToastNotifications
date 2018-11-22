@@ -106,12 +106,9 @@ static void displayed_msg_cb(
 	PurpleMessageFlags flags
 );
 
-static void buddy_signed_on_cb(
-	PurpleBuddy *buddy
-);
-
-static void buddy_signed_off_cb(
-	PurpleBuddy *buddy
+static void buddy_sign_cb(
+	PurpleBuddy *buddy,
+	BOOL online
 );
 
 static void button_clicked_cb(

@@ -608,8 +608,9 @@ static void displayed_msg_cb(
 	}
 }
 
-static void buddy_signed_on_cb(
-	PurpleBuddy *buddy
+static void buddy_sign_cb(
+	PurpleBuddy *buddy,
+	BOOL online
 ) {
 	PurpleStatus * purpleStatus = NULL;
 	PurpleStatusType * statusType = NULL;
@@ -619,76 +620,26 @@ static void buddy_signed_on_cb(
 	PurpleGroup * group = NULL;
 	const char * group_name = NULL;
 	const char *protocolName = NULL;
-	const char *userName = NULL;
 	char *attrText = NULL;
 	int callResult;
 	const char *senderName = NULL;
 	PurpleBuddyIcon *icon = NULL;
 	const char *iconPath = NULL;
 	PurpleAccount * account = NULL;
+	char * message = NULL;
+	Setting setting;
 
-	protocol_id = purple_account_get_protocol_id(account);
-	account_name = purple_account_get_username(account);
-	purpleStatus = purple_account_get_active_status(account);
-	statusType = purple_status_get_type(purpleStatus);
-	primStatus = purple_status_type_get_primitive(statusType);
-	group = purple_buddy_get_group(buddy);
-	group_name = purple_group_get_name(group);
-
-	if (get_effective_setting(primStatus, SETTING_BUDDY_SIGNED_ON, BUDDY_TYPE_BUDDY, group_name, protocol_id, account_name, buddy->name))
-	{
+	if (online) {
 		purple_debug_misc("win_toast_notifications", "Buddy signed on\n");
-		senderName = purple_buddy_get_alias(buddy);
-		if (senderName == NULL)
-		{
-			senderName = purple_buddy_get_name(buddy);
-		}
-		icon = purple_buddy_get_icon(buddy);
-		if (icon != NULL)
-		{
-			iconPath = purple_buddy_icon_get_full_path(icon);
-		}
-
-		account = purple_buddy_get_account(buddy);
-		userName = purple_account_get_username(account);
-		protocolName = purple_account_get_protocol_name(account);
-		attrText = get_attr_text(protocolName, userName, NULL);
-
-		purple_debug_misc("win_toast_notifications", "buddy_signed_on_cb (%s, %s)\n",
-							protocolName, userName);
-		// todo: handover a reference to the buddy to be able to create a conversation on click on the notification
-		callResult = (showToastProcAdd)(senderName, "Signed on", iconPath, attrText, NULL);
-		if (callResult)
-		{
-			output_toast_error(callResult, "Failed to show Toast Notification");
-		}
-		else
-		{
-			purple_debug_misc("win_toast_notifications", "Showed Toast Notification\n");
-		}
-		free(attrText);
+		setting = SETTING_BUDDY_SIGNED_ON;
+		message = "Signed on";
+	} else {
+		purple_debug_misc("win_toast_notifications", "Buddy signed off\n");
+		setting = SETTING_BUDDY_SIGNED_OFF;
+		message = "Signed off";
 	}
-}
 
-static void buddy_signed_off_cb(
-	PurpleBuddy *buddy
-) {
-	PurpleStatus * purpleStatus = NULL;
-	PurpleStatusType * statusType = NULL;
-	PurpleStatusPrimitive primStatus = 0;
-	const char * protocol_id = NULL;
-	const char * account_name = NULL;
-	PurpleGroup * group = NULL;
-	const char * group_name = NULL;
-	const char *protocolName = NULL;
-	const char *userName = NULL;
-	char *attrText = NULL;
-	int callResult;
-	const char *senderName = NULL;
-	PurpleBuddyIcon *icon = NULL;
-	const char *iconPath = NULL;
-	PurpleAccount * account = NULL;
-
+	account = purple_buddy_get_account(buddy);
 	protocol_id = purple_account_get_protocol_id(account);
 	account_name = purple_account_get_username(account);
 	purpleStatus = purple_account_get_active_status(account);
@@ -697,9 +648,9 @@ static void buddy_signed_off_cb(
 	group = purple_buddy_get_group(buddy);
 	group_name = purple_group_get_name(group);
 
-	if (get_effective_setting(primStatus, SETTING_BUDDY_SIGNED_OFF, BUDDY_TYPE_BUDDY, group_name, protocol_id, account_name, buddy->name))
+	if (get_effective_setting(primStatus, setting, BUDDY_TYPE_BUDDY, group_name, protocol_id, account_name, buddy->name))
 	{
-		purple_debug_misc("win_toast_notifications", "Buddy signed off\n");
+		purple_debug_misc("win_toast_notifications", "Notification should be shown\n");
 		senderName = purple_buddy_get_alias(buddy);
 		if (senderName == NULL)
 		{
@@ -711,14 +662,11 @@ static void buddy_signed_off_cb(
 			iconPath = purple_buddy_icon_get_full_path(icon);
 		}
 
-		account = purple_buddy_get_account(buddy);
-		userName = purple_account_get_username(account);
 		protocolName = purple_account_get_protocol_name(account);
-		attrText = get_attr_text(protocolName, userName, NULL);
+		attrText = get_attr_text(protocolName, account_name, NULL);
 
-		purple_debug_misc("win_toast_notifications", "buddy_signed_off_cb (%s, %s)\n",
-							protocolName, userName);
-		callResult = (showToastProcAdd)(senderName, "Signed off", iconPath, attrText, NULL);
+		// todo: handover a reference to the buddy to be able to create a conversation on click on the notification
+		callResult = (showToastProcAdd)(senderName, message, iconPath, attrText, NULL);
 		if (callResult)
 		{
 			output_toast_error(callResult, "Failed to show Toast Notification");
@@ -1147,6 +1095,7 @@ plugin_load(PurplePlugin *plugin)
 		{
 			int callResult;
 			void *conv_handle;
+			void *blist_handle;
 			purple_debug_misc("win_toast_notifications",
 							  "pidginWinToastLibInit called\n");
 			callResult = (initAdd)((void *)toast_clicked_cb);
@@ -1159,15 +1108,16 @@ plugin_load(PurplePlugin *plugin)
 				purple_debug_misc("win_toast_notifications",
 								  "pidginWinToastLibInit initialized\n");
 				conv_handle = pidgin_conversations_get_handle();
+				blist_handle = purple_blist_get_handle();
 				purple_signal_connect(conv_handle, "displayed-im-msg",
 									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
 				purple_signal_connect(conv_handle, "displayed-chat-msg",
 									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
-				purple_signal_connect(conv_handle, "buddy-signed-on",
-									  plugin, PURPLE_CALLBACK(buddy_signed_on_cb), NULL);
-				purple_signal_connect(conv_handle, "buddy-signed-off",
-									  plugin, PURPLE_CALLBACK(buddy_signed_off_cb), NULL);
-				purple_signal_connect(purple_blist_get_handle(), "blist-node-extended-menu", plugin,
+				purple_signal_connect(blist_handle, "buddy-signed-on",
+									  plugin, PURPLE_CALLBACK(buddy_sign_cb), (void*)TRUE);
+				purple_signal_connect(blist_handle, "buddy-signed-off",
+									  plugin, PURPLE_CALLBACK(buddy_sign_cb), (void*)FALSE);
+				purple_signal_connect(blist_handle, "blist-node-extended-menu", plugin,
 									PURPLE_CALLBACK(context_menu), plugin);
 				return TRUE;
 			}
