@@ -1,5 +1,9 @@
 # Changelog
 
+## <a name="1.6.0"></a>[1.6.0](#1.6.0) (2018-11-29)
+- Added online / offline notification of buddies ([#7](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/7))
+- Added configuration on group level ([#6](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/6))
+
 ## <a name="1.5.0"></a>[1.5.0](#1.5.0) (2018-09-26)
 - Added local settings.
 
