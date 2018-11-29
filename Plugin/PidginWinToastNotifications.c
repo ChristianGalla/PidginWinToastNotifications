@@ -1000,22 +1000,22 @@ static void add_setting_groups(
 
 static void show_local_settings_dialog(PurpleBlistNode *node, gpointer plugin)
 {
-	PurplePlugin *prpl;
+	PurplePlugin *prpl = NULL;
 	PurplePluginProtocolInfo *prpl_info = NULL;
-	struct localSettingsData *data;
-	GtkWidget *dialog;
-	GtkWidget *scrolled_window;
-	GtkWidget *vbox;
-	GtkWidget *label;
+	struct localSettingsData *data = NULL;
+	GtkWidget *dialog = NULL;
+	GtkWidget *scrolled_window = NULL;
+	GtkWidget *vbox = NULL;
+	GtkWidget *label = NULL;
 	Buddy_type buddy_type;
-	PurpleGroup * groupNode;
-	PurpleBuddy * buddyNode;
-	PurpleChat * chatNode;
-	const char *chatName;
-	const char *account_name;
-	const char *group_name;
-	const char *buddy_name;
-	const char *protocol_id;
+	PurpleGroup * groupNode = NULL;
+	PurpleBuddy * buddyNode = NULL;
+	PurpleChat * chatNode = NULL;
+	const char *chatName = NULL;
+	const char *account_name = NULL;
+	const char *group_name = NULL;
+	const char *buddy_name = NULL;
+	const char *protocol_id = NULL;
 
 	if (PURPLE_BLIST_NODE_IS_GROUP(node)) {
 		groupNode = (PurpleGroup*) node;
