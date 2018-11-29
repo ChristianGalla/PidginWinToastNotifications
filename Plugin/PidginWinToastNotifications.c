@@ -1,5 +1,20 @@
 #include "PidginWinToastNotifications.h"
 
+ConnectionNode ** connection_root = NULL;
+int num_connection_nodes = 0;
+
+// for add_connection_node_to_delete_array
+ConnectionNode ** connection_nodes_to_delete = NULL;
+int current_connection_node_id = 0;
+
+int compare_connection_nodes (const void *a, const void *b)
+{
+  const ConnectionNode *ca = (const ConnectionNode *) a;
+  const ConnectionNode *cb = (const ConnectionNode *) b;
+
+  return (ca->account > cb->account) - (ca->account < cb->account);
+}
+
 static void ensure_prefs_path(const char *path) {
 	char *subPath;
 	int i = 0;
@@ -608,6 +623,33 @@ static void displayed_msg_cb(
 	}
 }
 
+static void account_signed_on(
+	PurpleAccount *account
+) {
+	ConnectionNode **tree_node = NULL;
+	ConnectionNode *node = malloc(sizeof(ConnectionNode));
+	if (node == NULL) {
+		return;
+	}
+	node->account = account;
+	node->connect_time = time(NULL);
+	if (node->connect_time == (time_t) -1) {
+		free(node);
+		return;
+	}
+	tree_node = (ConnectionNode **)tsearch((void*)node, (void*)&connection_root, compare_connection_nodes);
+	if (tree_node == NULL) {
+		free(node);
+		return;
+	}
+	if (*tree_node != node) {
+		(*tree_node)->connect_time = node->connect_time;
+		free(node);
+		return;
+	}
+	num_connection_nodes++;
+}
+
 static void buddy_sign_cb(
 	PurpleBuddy *buddy,
 	BOOL online
@@ -628,6 +670,10 @@ static void buddy_sign_cb(
 	PurpleAccount * account = NULL;
 	char * message = NULL;
 	Setting setting;
+	ConnectionNode *node = NULL;
+	ConnectionNode **tree_node = NULL;
+	time_t current_time;
+	int notificationDelayAfterSignOnInS = 5;
 
 	if (online) {
 		purple_debug_misc("win_toast_notifications", "Buddy signed on\n");
@@ -640,6 +686,30 @@ static void buddy_sign_cb(
 	}
 
 	account = purple_buddy_get_account(buddy);
+
+	node = malloc(sizeof(ConnectionNode));
+	if (node == NULL) {
+		return;
+	}
+	node->account = account;
+	if (node->connect_time == (time_t) -1) {
+		free(node);
+		return;
+	}
+	tree_node = (ConnectionNode **)tfind((void*)node, (void*)&connection_root, compare_connection_nodes);
+	free(node);
+	if (tree_node == NULL) {
+		return;
+	}
+	current_time = time(NULL);
+	if (((current_time - (*tree_node)->connect_time)) < notificationDelayAfterSignOnInS) {
+		// do not show sign on notifications of a buddy in the first seconds after signed on
+		// because this can produce many notifications
+		// todo: make this customizable by the user?
+		return;
+	}
+
+
 	protocol_id = purple_account_get_protocol_id(account);
 	account_name = purple_account_get_username(account);
 	purpleStatus = purple_account_get_active_status(account);
@@ -1096,6 +1166,7 @@ plugin_load(PurplePlugin *plugin)
 			int callResult;
 			void *conv_handle;
 			void *blist_handle;
+			void *account_handle;
 			purple_debug_misc("win_toast_notifications",
 							  "pidginWinToastLibInit called\n");
 			callResult = (initAdd)((void *)toast_clicked_cb);
@@ -1105,10 +1176,41 @@ plugin_load(PurplePlugin *plugin)
 			}
 			else
 			{
+				GList* accounts = NULL;
 				purple_debug_misc("win_toast_notifications",
 								  "pidginWinToastLibInit initialized\n");
+
+				num_connection_nodes = 0;
+				connection_root = NULL;
+				accounts = purple_accounts_get_all();
+				while (accounts != NULL) {
+					ConnectionNode **tree_node = NULL;
+					ConnectionNode *node = malloc(sizeof(ConnectionNode));
+					if (node == NULL) {
+						plugin_unload(plugin);
+						return FALSE;
+					}
+					node->account = accounts->data;
+					node->connect_time = time(NULL);
+					if (node->connect_time == (time_t) -1) {
+						free(node);
+						plugin_unload(plugin);
+						return FALSE;
+					}
+					tree_node = (ConnectionNode **)tsearch((void*)node, (void*)&connection_root, compare_connection_nodes);
+					if (tree_node == NULL) {
+						free(node);
+						plugin_unload(plugin);
+						return FALSE;
+					}
+					num_connection_nodes++;
+					
+					accounts = accounts->next;
+				}
+
 				conv_handle = pidgin_conversations_get_handle();
 				blist_handle = purple_blist_get_handle();
+				account_handle = purple_accounts_get_handle();
 				purple_signal_connect(conv_handle, "displayed-im-msg",
 									  plugin, PURPLE_CALLBACK(displayed_msg_cb), NULL);
 				purple_signal_connect(conv_handle, "displayed-chat-msg",
@@ -1117,8 +1219,11 @@ plugin_load(PurplePlugin *plugin)
 									  plugin, PURPLE_CALLBACK(buddy_sign_cb), (void*)TRUE);
 				purple_signal_connect(blist_handle, "buddy-signed-off",
 									  plugin, PURPLE_CALLBACK(buddy_sign_cb), (void*)FALSE);
-				purple_signal_connect(blist_handle, "blist-node-extended-menu", plugin,
-									PURPLE_CALLBACK(context_menu), plugin);
+				purple_signal_connect(blist_handle, "blist-node-extended-menu",
+									  plugin, PURPLE_CALLBACK(context_menu), plugin);
+				purple_signal_connect(account_handle, "account-signed-on",
+									  plugin, PURPLE_CALLBACK(account_signed_on), NULL);
+
 				return TRUE;
 			}
 		}
@@ -1132,9 +1237,25 @@ plugin_load(PurplePlugin *plugin)
 	return FALSE;
 }
 
+void add_connection_node_to_delete_array (const void *nodep, VISIT value, int level) {
+	ConnectionNode * node = *((ConnectionNode **)nodep);
+	connection_nodes_to_delete[current_connection_node_id] = node;
+	current_connection_node_id++;
+}
+
 static gboolean
 plugin_unload(PurplePlugin *plugin)
 {
+	int i;
+	connection_nodes_to_delete = malloc(sizeof(ConnectionNode *) * num_connection_nodes);
+	twalk((void*)connection_root, add_connection_node_to_delete_array);
+
+	for (i = 0; i < num_connection_nodes; i++) {
+		ConnectionNode * node = connection_nodes_to_delete[i];
+		tdelete((void*)node, (void*)&connection_root, compare_connection_nodes);
+		free(node);
+	}
+
 	purple_signals_disconnect_by_handle(plugin);
 
 	if (hinstLib != NULL)

@@ -1,11 +1,13 @@
 #define PURPLE_PLUGINS
 
-#include <glib.h>
+#include <search.h>
 #include "string.h"
 
+#include <glib.h>
 #include "gtkplugin.h"
 #include "gtkconv.h"
 #include "gtkconvwin.h"
+
 #include "account.h"
 #include "debug.h"
 #include "signals.h"
@@ -16,6 +18,7 @@
 typedef int(__cdecl *initProc)(
 	void (*clickCallback)(void *conv)
 );
+
 typedef int(__cdecl *showToastProc)(
 	const char *sender,
 	const char *message,
@@ -43,6 +46,13 @@ struct status_options_paths {
 	const char * for_chat_mentioned;
 	const char * for_focus;
 };
+
+typedef struct {
+	PurpleAccount * account;
+	time_t connect_time;
+} ConnectionNode;
+
+int compare_connection_nodes (const void *a, const void *b);
 
 const struct status_options_paths labels = {
 	NULL,
@@ -104,6 +114,10 @@ static void displayed_msg_cb(
 	const char *buffer,
 	PurpleConversation *conv,
 	PurpleMessageFlags flags
+);
+
+static void account_signed_on(
+	PurpleAccount *account
 );
 
 static void buddy_sign_cb(
@@ -233,3 +247,5 @@ static gboolean get_effective_setting(
 GtkWidget * get_config_frame(
 	PurplePlugin *plugin
 );
+
+void add_connection_node_to_delete_array (const void *nodep, VISIT value, int level);
