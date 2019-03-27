@@ -498,15 +498,16 @@ static gboolean get_effective_setting(PurpleStatusPrimitive status, Setting sett
 }
 
 static gboolean should_show_message(PurpleAccount *account, PurpleConversation *conv, PurpleConversationType convType, PurpleMessageFlags flags, const char *sender) {
-	PurpleStatus * purpleStatus = NULL;
-	PurpleStatusType * statusType = NULL;
+	PurpleStatus* purpleStatus = NULL;
+	PurpleStatusType* statusType = NULL;
 	PurpleStatusPrimitive primStatus = 0;
-	const char * protocol_id = NULL;
-	const char * account_name = NULL;
-	PurpleBuddy * buddy = NULL;
-	PurpleChat * chat = NULL;
-	PurpleGroup * group = NULL;
-	const char * group_name = NULL;
+	const char* protocol_id = NULL;
+	const char* account_name = NULL;
+	PurpleBuddy* buddy = NULL;
+	const char* chatName = NULL;
+	PurpleChat* chat = NULL;
+	PurpleGroup* group = NULL;
+	const char* group_name = NULL;
 
 	if (!(flags & PURPLE_MESSAGE_RECV)) {
 		return FALSE;
@@ -535,18 +536,21 @@ static gboolean should_show_message(PurpleAccount *account, PurpleConversation *
 			return FALSE;
 		}
 	} else if (convType == PURPLE_CONV_TYPE_CHAT) {
-		chat = purple_blist_find_chat(account, sender);
-		group = purple_chat_get_group(chat);
-		group_name = purple_group_get_name(group);
-		purple_debug_misc("win_toast_notifications", "Checking chat settings\n");
-		if (!get_effective_setting(primStatus, SETTING_FOR_CHAT, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, sender)) {
-			if (!(flags & PURPLE_MESSAGE_NICK && get_effective_setting(primStatus, SETTING_FOR_CHAT_MENTIONED, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, sender))) {
+		if (conv != NULL) {
+			chatName = purple_conversation_get_name(conv);
+			chat = purple_blist_find_chat(account, chatName);
+			group = purple_chat_get_group(chat);
+			group_name = purple_group_get_name(group);
+			purple_debug_misc("win_toast_notifications", "Checking chat settings\n");
+			if (!get_effective_setting(primStatus, SETTING_FOR_CHAT, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, chatName)) {
+				if (!(flags & PURPLE_MESSAGE_NICK && get_effective_setting(primStatus, SETTING_FOR_CHAT_MENTIONED, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, chatName))) {
+					return FALSE;
+				}
+			}
+			if (purple_conversation_has_focus(conv) && !get_effective_setting(primStatus, SETTING_FOR_FOCUS, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, chatName))
+			{
 				return FALSE;
 			}
-		}
-		if (conv != NULL && purple_conversation_has_focus(conv) && !get_effective_setting(primStatus, SETTING_FOR_FOCUS, BUDDY_TYPE_CHAT, group_name, protocol_id, account_name, sender))
-		{
-			return FALSE;
 		}
 	}
 
