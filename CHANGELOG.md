@@ -1,5 +1,8 @@
 # Changelog
 
+## <a name="1.6.1"></a>[1.6.1](#1.6.1) (2019-04-04)
+- Fix: Name of sender instead of chat was used to determine if message in chat should be displayed
+
 ## <a name="1.6.0"></a>[1.6.0](#1.6.0) (2018-11-29)
 - Added online / offline notification of buddies ([#7](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/7))
 - Added configuration on group level ([#6](https://github.com/ChristianGalla/PidginWinToastNotifications/issues/6))
