@@ -66,6 +66,8 @@ Configuration for a buddy:
 
 The global configuration can be accessed via the default plugin configuration page (In Buddy List: Tools / Plugins / Windows Toast Notifications).
 
+The group settings can be opened from the context menu of a group in the Buddy List.
+
 The local settings can be opened from the conversation menu underneath *More* or from the context menu of a buddy or chat in the Buddy List:
 
 ![Configuration menu in a conversation](./img/configuration_menu.png "Open settings for a conversation")
