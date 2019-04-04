@@ -18,11 +18,11 @@ Chat message from someone who has not a profile picture:
 
 A buddy who has not a profile picture signed on:
 
-![Buddy signed on](./img/sign_on.jpg "Buddy signed on")
+![Buddy signed on](./img/sign_on.png "Buddy signed on")
 
 A buddy who has not a profile picture signed off:
 
-![Buddy signed off](./img/sign_off.jpg "Buddy signed off")
+![Buddy signed off](./img/sign_off.png "Buddy signed off")
 
 This plugin uses Pidgin's standard C API so no other tools like Perl are required.
 
@@ -31,6 +31,8 @@ This plugin uses Pidgin's standard C API so no other tools like Perl are require
 * [Table of contents](#table-of-contents)
 * [Configuration](#configuration)
 * [Supported operating systems](#supported-operating-systems)
+* [Supported Pidgin versions](#supported-pidgin-versions)
+* [Help and feature requests](#help-and-feature-requests)
 * [Changelog](#changelog)
 * [Installation](#installation)
 * [Architecture](#architecture)
@@ -63,6 +65,8 @@ Configuration for a buddy:
 ![Buddy configuration](./img/configuration_buddy.png "Configuration for buddy")
 
 The global configuration can be accessed via the default plugin configuration page (In Buddy List: Tools / Plugins / Windows Toast Notifications).
+
+The group settings can be opened from the context menu of a group in the Buddy List.
 
 The local settings can be opened from the conversation menu underneath *More* or from the context menu of a buddy or chat in the Buddy List:
 
