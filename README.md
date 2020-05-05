@@ -28,15 +28,63 @@ This plugin uses Pidgin's standard C API so no other tools like Perl are require
 
 ## Table of contents
 
-* [Table of contents](#table-of-contents)
-* [Configuration](#configuration)
-* [Supported operating systems](#supported-operating-systems)
 * [Supported Pidgin versions](#supported-pidgin-versions)
+* [Supported operating systems](#supported-operating-systems)
+* [Installation](#installation)
+* [Troubleshooting](#troubleshooting)
+* [Configuration](#configuration)
 * [Help and feature requests](#help-and-feature-requests)
 * [Changelog](#changelog)
-* [Installation](#installation)
 * [Architecture](#architecture)
 * [How to build on Windows](#how-to-build-on-windows)
+
+## Supported Pidgin versions
+
+The plugin was developed and tested using the newest Pidgin 2 version 2.13.0.
+
+For Pidgin version 2.12.0 there is an [alternate download](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/download/v1.6.1/PidginWinToastNotifications.for.Pidgin.2.12.0.zip).
+
+Older versions of Pidgin are currently not supported.
+
+## Supported operating systems
+
+The plugin was developed and tested using the newest Windows 10 version.
+
+Other Windows 10 versions, Windows 8 and Windows 8.1 should also work, but this has not been tested.
+
+To display the protocol, account and chat name in the toast notifications the Windows 10 Anniversary Update (also known as version 1607 or Redstone 1) or newer is required.
+
+## Installation
+
+1. Ensure to have the Microsoft Visual C++ 2015-2019 Redistributable (x86) installed or [download and install it from Microsoft](https://aka.ms/vs/16/release/vc_redist.x86.exe).
+2. Download the dll files from the [newest release](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest).
+3. Copy the file PidginWinToastLib.dll to the installation directory of Pidgin. This is usually "C:\Program Files (x86)\Pidgin" on 64-bit versions of Windows or "C:\Program Files\Pidgin" on a 32-bit version.
+4. Copy the file PidginWinToastNotifications.dll to the plugin directory of Pidgin. This is usually "C:\Program Files (x86)\Pidgin\plugins" on 64-bit versions of Windows or "C:\Program Files\Pidgin\plugins" on a 32-bit version.
+5. Start Pidgin. Open the plugin window and enable "Windows Toast Notifications".
+
+## Troubleshooting
+
+If the plugin cannot be enabled, there should be an error message in the error search window available in the help menu of Pidgin.
+
+If you experience a problem or have an idea for a new feature, [feel free to open an issue](https://github.com/ChristianGalla/PidginWinToastNotifications/issues).
+
+### Known errors
+
+* The initialization may fail if the current user is not permitted to edit the Pidgin shortcut in the Start menu.
+
+  To be able to create Windows Toast Notifications, it is required to set a property on the Start menu shortcut of Pidgin or automatically create a new one. Please ensure the current user is permitted to do this.
+  
+* A notification for a received message is shown when you send the message from another device.
+
+  The used protocol may incorrectly call Pidgin's message receive event. Please update your protocol plugin and if the error persists, contact the author of the protocol plugin to have a look into this.
+  
+* There is a duplicate task bar icon.
+
+  The Toast notification plugin sets an Application User Model ID that is used to group program windows.
+  
+  If you have pinned Pidgin to the task bar before enabling the Toast notification plugin, unpin it and pin the current running Pidgin window.
+  
+  If you are using other Windows specific plugins, they may try to set another conflicting app id. Please try to identify incompatible Plugins by selective enabling or disabling. If you have found an incompatible plugin, try to update it to the newest version before creating an issue.
 
 ## Configuration
 
@@ -72,36 +120,9 @@ The local settings can be opened from the conversation menu underneath *More* or
 
 ![Configuration menu in a conversation](./img/configuration_menu.png "Open settings for a conversation")
 
-## Supported operating systems
-
-The plugin was developed and tested using the newest Windows 10 version.
-
-Other Windows 10 versions, Windows 8 and Windows 8.1 should also work, but this has not been tested.
-
-To display the protocol, account and chat name in the toast notifications the Windows 10 Anniversary Update (also known as version 1607 or Redstone 1) or newer is required.
-
-## Supported Pidgin versions
-
-The plugin was developed and tested using the newest Pidgin 2 version.
-
-Other Pidgin versions may work, but this has not been tested.
-
-If a problem occurs, try [updating Pidgin to the latest 2.X.X version](https://pidgin.im/).
-
-## Help and feature requests
-
-If you experience a problem or have an idea for a new feature, [feel free to open an issue](https://github.com/ChristianGalla/PidginWinToastNotifications/issues).
-
 ## Changelog
 
 All changes between versions are documented in the file [CHANGELOG.md](./CHANGELOG.md).
-
-## Installation
-
-1. Download the dll files from the [newest release](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest).
-2. Copy the file PidginWinToastLib.dll to the installation directory of Pidgin. This is usually "C:\Program Files (x86)\Pidgin" on 64-bit versions of Windows or "C:\Program Files\Pidgin" on a 32-bit version.
-3. Copy the file PidginWinToastNotifications.dll to the plugin directory of Pidgin. This is usually "C:\Program Files (x86)\Pidgin\plugins" on 64-bit versions of Windows or "C:\Program Files\Pidgin\plugins" on a 32-bit version.
-4. Start Pidgin. Open the plugin window and enable "Windows Toast Notifications".
 
 ## Architecture
 
