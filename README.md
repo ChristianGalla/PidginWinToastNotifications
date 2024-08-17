@@ -1,5 +1,10 @@
 # PidginWinToastNotifications
 
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ChristianGalla/PidginWinToastNotifications?label=Latest%20release%20version)](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest)
+[![GitHub Release Date](https://img.shields.io/github/release-date/ChristianGalla/PidginWinToastNotifications?label=Latest%20release%20date)](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest)
+[![GitHub](https://img.shields.io/github/license/ChristianGalla/PidginWinToastNotifications?label=License)](https://github.com/ChristianGalla/PidginWinToastNotifications/blob/master/LICENSE)
+[![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/ChristianGalla/PidginWinToastNotifications/total?label=Downloads)](https://github.com/ChristianGalla/PidginWinToastNotifications/releases/latest)
+
 Windows toast notification plugin for [Pidgin](https://pidgin.im/).
 
 Shows notifications on message receive or buddy sign on / off in the standard Windows design.
