@@ -75,9 +75,16 @@ If you experience a problem or have an idea for a new feature, [feel free to ope
 
 ### Known errors
 
+* No toast notifications are shown.
+
+  Please ensure you have correctly followed the installation instructions, Windows [focus mode](https://support.microsoft.com/en-us/windows/focus-stay-on-task-without-distractions-in-windows-cbcc9ddb-8164-43fa-8919-b9a2af072382) and [do not disturb](https://support.microsoft.com/en-us/windows/notifications-and-do-not-disturb-in-windows-feeca47f-0baf-5680-16f0-8801db1a8466#ID0EDFBBDBD) are not enabled and you have not manually blocked Pidgin in Windows global toast notification settings.
+
+  Also, ensure your have set the desired configuration of this plugin.
+
 * The initialization may fail if the current user is not permitted to edit the Pidgin shortcut in the Start menu.
 
   To be able to create Windows Toast Notifications, it is required to set a property on the Start menu shortcut of Pidgin or automatically create a new one. Please ensure the current user is permitted to do this.
+  If your users only have limited permissions, it is sufficient to start Pidgin and this plugin only once as administrator.
   
 * A notification for a received message is shown when you send the message from another device.
 
